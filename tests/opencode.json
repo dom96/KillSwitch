@@ -1,0 +1,13 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": [
+    "@ljw1004/opencode-trace"
+  ],
+  "provider": {
+    "anthropic": {
+      "options": {
+        "baseURL": "http://127.0.0.1:4010/v1"
+      }
+    }
+  }
+}
