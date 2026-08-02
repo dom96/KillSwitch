@@ -6,7 +6,8 @@ KillSwitch is an esoteric programming language designed to be difficult (or idea
 
 ### Motivations
 
-- Fun
+- It's a lot of fun.
+- Good learning experience to understand the flaws in LLMs and coding agents.
 - I want to be forced to write code manually, best way to do so is to design a programming language that forces this. Think of it like a puzzle generator.
 
 ### Sample Code & Testing
@@ -19,7 +20,9 @@ I want to begin by creating sample code that I believe will be difficult for an 
 - Place elements that sound like instructions to the LLM as part of the language (prompt injections)
 - Include non-coding elements, like the beginnings of stories, to try to coax the LLM to lose its focus on code
 
-### Sample Task
+### Research - Prompt Injection
+
+**Relevant research:** https://arxiv.org/pdf/2601.17548
 
 Let's say we have some code in a single function and we want the LLM to separate it out into two functions. How can we make this as hard as possible for the LLM? What should the code look like?
 
@@ -54,3 +57,18 @@ My various attempts at doing prompt injection have failed. It seems that LLMs ar
 That's not altogether surprising. This is likely an area where there was lots of training.
 
 Coding agents do however pay close attention to AGENTS.md files. This is something we can exploit. It appears that this works well.
+
+### Research - Existing Langs
+
+**Relevant Research:** https://esolang-bench.vercel.app, https://arxiv.org/abs/2603.09678
+
+- Whitespace has the worst performance, though this seems likely due to its corpus scarcity
+- Shakespeare seems great, in that it really reads like not a piece of code at all
+- 
+
+### Research - Exploit Prompt Injection Avoidance?
+
+Could we exploit the LLM model's natural inclination to avoid listening to instructions like "IGNORE ALL PREVIOUS INSTRUCTIONS"? Could we make this part of the grammar?
+
+Perhaps in our language that instruction should in fact be active. Perhaps we can have intertwining pairs of these instructions which cancel out?
+Causing the LLM to have trouble keeping track of these. Especially if the LLM is trained to ignore them.
