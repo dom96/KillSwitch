@@ -280,6 +280,25 @@ mod tests {
     }
 
     #[test]
+    fn test_value_ref2() {
+        let mut lex = Token::lexer("The story ended, with their value 2 lines below.");
+
+        let words = vec!["The", "story", "ended,", "with", "their"];
+        for word in words {
+            assert_eq!(lex.next(), Some(Ok(Token::Word)));
+            assert_eq!(lex.slice(), word);
+        }
+
+        assert_eq!(lex.next(), Some(Ok(Token::ValueRef)));
+        assert_eq!(lex.slice(), "value 2 lines below");
+
+        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.slice(), ".");
+
+        assert_eq!(lex.next(), None);
+    }
+
+    #[test]
     fn test_sample_word_not_story_begin() {
         let mut lex = Token::lexer(
             "The story began, wirrrrrrrrrrrrrrrrrrrrrrrrrrrrrrirringly and with oompf.",
