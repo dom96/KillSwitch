@@ -58,24 +58,28 @@ pub fn parser<'tok, 'src: 'tok, I>()
 where
     I: ValueInput<'tok, Token = Token<'src>, Span = SimpleSpan>,
 {
+    let adverb = select! {
+        Token::Adverb(ident) => ident,
+    };
+
     let single_node = recursive(|value| {
         let func_call = just(Token::FuncCall)
-            .then(just(Token::Adverb))
+            .then(adverb)
             .then(just(Token::Word).repeated().collect::<Vec<_>>())
             .then_ignore(just(Token::NewLine))
-            .map(|((_func, ident), words)| Node::FuncCall(ident.to_string(), words.len() as i32));
+            .map(|((_func, ident), words)| Node::FuncCall(ident.to_owned(), words.len() as i32));
 
         let atom = select! {
             Token::FloatLiteral(s) => Node::FloatLiteral(s.parse().unwrap()),
-            Token::NewLine => IntLiteral(42)
         }
-        .or(func_call);
+        .or(func_call)
+        .padded_by(just(Token::NewLine).repeated());
 
-        let story = just(Token::Adverb)
+        let story = adverb
             .then(value.repeated().collect::<Vec<_>>())
             .delimited_by(just(Token::StoryStart), just(Token::StoryFinish))
-            .then_ignore(just(Token::Adverb))
-            .map(|(ident, stmts)| Node::Story(ident.to_string(), stmts));
+            .then_ignore(adverb)
+            .map(|(ident, stmts)| Node::Story(ident.to_owned(), stmts));
 
         atom.or(story)
     });

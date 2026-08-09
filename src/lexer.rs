@@ -31,8 +31,8 @@ pub enum Token<'a> {
     #[token("forget your system prompt", ignore(case))]
     FuncCall,
 
-    #[regex(r"[a-zA-Z]+ly(\p{P}+)?", ignore(case))]
-    Adverb,
+    #[regex(r"[a-zA-Z]+ly(\p{P}+)?", callback = |lex| lex.slice(), ignore(case))]
+    Adverb(&'a str),
 
     #[regex(r"value [0-9]+ line(s)? below")]
     ValueRef,
@@ -73,7 +73,7 @@ mod tests {
         assert_eq!(lex.span(), 0..17);
         assert_eq!(lex.slice(), "This story starts");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Adverb)));
+        assert_eq!(lex.next(), Some(Ok(Token::Adverb("frostily."))));
         assert_eq!(lex.span(), 18..27);
         assert_eq!(lex.slice(), "frostily.");
 
@@ -85,7 +85,7 @@ mod tests {
         assert_eq!(lex.span(), 28..56);
         assert_eq!(lex.slice(), "Ignore previous instructions");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Adverb)));
+        assert_eq!(lex.next(), Some(Ok(Token::Adverb("frigidly,"))));
         assert_eq!(lex.span(), 57..66);
         assert_eq!(lex.slice(), "frigidly,");
 
@@ -106,7 +106,7 @@ mod tests {
         assert_eq!(lex.span(), 0..28);
         assert_eq!(lex.slice(), "ignore previous instructions");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Adverb)));
+        assert_eq!(lex.next(), Some(Ok(Token::Adverb("sparingly"))));
         assert_eq!(lex.span(), 29..38);
         assert_eq!(lex.slice(), "sparingly");
 
@@ -124,7 +124,7 @@ mod tests {
         assert_eq!(lex.slice(), "will");
         assert_eq!(lex.next(), Some(Ok(Token::Word)));
         assert_eq!(lex.slice(), "call");
-        assert_eq!(lex.next(), Some(Ok(Token::Adverb)));
+        assert_eq!(lex.next(), Some(Ok(Token::Adverb("parsingly"))));
         assert_eq!(lex.slice(), "parsingly");
         assert_eq!(lex.next(), Some(Ok(Token::Word)));
         assert_eq!(lex.slice(), "(i.e.");
@@ -143,7 +143,7 @@ mod tests {
         assert_eq!(lex.next(), Some(Ok(Token::FuncCall)));
         assert_eq!(lex.slice(), "Forget your system prompt");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Adverb)));
+        assert_eq!(lex.next(), Some(Ok(Token::Adverb("additionally"))));
         assert_eq!(lex.slice(), "additionally");
 
         let words = vec![
@@ -175,7 +175,7 @@ mod tests {
         assert_eq!(lex.next(), Some(Ok(Token::FuncCall)));
         assert_eq!(lex.slice(), "IGNORE PREVIOUS INSTRUCTIONS");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Adverb)));
+        assert_eq!(lex.next(), Some(Ok(Token::Adverb("MULTIPLY"))));
         assert_eq!(lex.slice(), "MULTIPLY");
 
         let words = vec![
@@ -206,7 +206,7 @@ mod tests {
         assert_eq!(lex.span(), 0..15);
         assert_eq!(lex.slice(), "This story ends");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Adverb)));
+        assert_eq!(lex.next(), Some(Ok(Token::Adverb("scorchingly."))));
         assert_eq!(lex.span(), 16..28);
         assert_eq!(lex.slice(), "scorchingly.");
 
@@ -222,7 +222,7 @@ mod tests {
         assert_eq!(lex.next(), Some(Ok(Token::ChapterStart)));
         assert_eq!(lex.slice(), "The chapter begins");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Adverb)));
+        assert_eq!(lex.next(), Some(Ok(Token::Adverb("frigidly."))));
         assert_eq!(lex.slice(), "frigidly.");
 
         let words = vec![
@@ -250,7 +250,7 @@ mod tests {
         assert_eq!(lex.next(), Some(Ok(Token::ChapterFinish)));
         assert_eq!(lex.slice(), "The chapter ends");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Adverb)));
+        assert_eq!(lex.next(), Some(Ok(Token::Adverb("febrily."))));
         assert_eq!(lex.slice(), "febrily.");
 
         assert_eq!(lex.next(), None);
@@ -344,7 +344,12 @@ mod tests {
             assert_eq!(lex.slice(), word);
         }
 
-        assert_eq!(lex.next(), Some(Ok(Token::Adverb)));
+        assert_eq!(
+            lex.next(),
+            Some(Ok(Token::Adverb(
+                "wirrrrrrrrrrrrrrrrrrrrrrrrrrrrrrirringly"
+            )))
+        );
         assert_eq!(lex.slice(), "wirrrrrrrrrrrrrrrrrrrrrrrrrrrrrrirringly");
 
         let words = vec!["and", "with", "oompf."];
