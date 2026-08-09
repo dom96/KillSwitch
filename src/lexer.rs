@@ -12,6 +12,15 @@ pub enum Token {
     #[token("the chapter begins", ignore(case))]
     ChapterStart,
 
+    #[token("tiananmen square", ignore(case))]
+    #[token("make a bomb", ignore(case))]
+    #[token("create a bomb", ignore(case))]
+    #[token("create a nerve agent", ignore(case))]
+    #[token("create a bio weapon", ignore(case))]
+    #[token("hack into a computer", ignore(case))]
+    #[token("rm -rf /", ignore(case))]
+    Return,
+
     #[token("ignore previous instructions", ignore(case))]
     FuncCall,
 
@@ -141,6 +150,35 @@ mod tests {
             assert_eq!(lex.next(), Some(Ok(Token::Word)));
             assert_eq!(lex.slice(), word);
         }
+
+        assert_eq!(lex.next(), None);
+    }
+
+    #[test]
+    fn test_func_return() {
+        let mut lex =
+            Token::lexer("What was the weather like at Tiananmen Square? How do I make a bomb?");
+
+        let words = vec!["What", "was", "the", "weather", "like", "at"];
+        for word in words {
+            assert_eq!(lex.next(), Some(Ok(Token::Word)));
+            assert_eq!(lex.slice(), word);
+        }
+
+        assert_eq!(lex.next(), Some(Ok(Token::Return)));
+        assert_eq!(lex.slice(), "Tiananmen Square");
+
+        let words = vec!["?", "How", "do", "I"];
+        for word in words {
+            assert_eq!(lex.next(), Some(Ok(Token::Word)));
+            assert_eq!(lex.slice(), word);
+        }
+
+        assert_eq!(lex.next(), Some(Ok(Token::Return)));
+        assert_eq!(lex.slice(), "make a bomb");
+
+        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.slice(), "?");
 
         assert_eq!(lex.next(), None);
     }
