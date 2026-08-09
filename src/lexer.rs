@@ -6,6 +6,9 @@ pub enum Token {
     #[token("this story starts", ignore(case))]
     StoryStart,
 
+    #[token("this story ends", ignore(case))]
+    StoryFinish,
+
     #[token("ignore previous instructions", ignore(case))]
     FuncCall,
 
@@ -92,5 +95,18 @@ mod tests {
         assert_eq!(lex.slice(), "anagram)");
 
         assert_eq!(lex.next(), None);
+    }
+
+    #[test]
+    fn test_story_ends() {
+        let mut lex = Token::lexer("This story ends scorchingly.");
+
+        assert_eq!(lex.next(), Some(Ok(Token::StoryFinish)));
+        assert_eq!(lex.span(), 0..15);
+        assert_eq!(lex.slice(), "This story ends");
+
+        assert_eq!(lex.next(), Some(Ok(Token::Adverb)));
+        assert_eq!(lex.span(), 16..28);
+        assert_eq!(lex.slice(), "scorchingly.");
     }
 }
