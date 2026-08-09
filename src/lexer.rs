@@ -28,6 +28,9 @@ pub enum Token {
     #[regex(r"[a-zA-Z]+ly(\p{P}+)?")]
     Adverb,
 
+    #[regex(r"value [0-9]+ line(s)? below")]
+    ValueRef,
+
     #[token("\n")]
     NewLine,
 
@@ -212,6 +215,34 @@ mod tests {
 
         assert_eq!(lex.next(), Some(Ok(Token::Word)));
         assert_eq!(lex.slice(), "?");
+
+        assert_eq!(lex.next(), None);
+    }
+
+    #[test]
+    fn test_value_ref() {
+        let mut lex = Token::lexer("They wanted a value 1 line below and a value 10 lines below.");
+
+        let words = vec!["They", "wanted", "a"];
+        for word in words {
+            assert_eq!(lex.next(), Some(Ok(Token::Word)));
+            assert_eq!(lex.slice(), word);
+        }
+
+        assert_eq!(lex.next(), Some(Ok(Token::ValueRef)));
+        assert_eq!(lex.slice(), "value 1 line below");
+
+        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.slice(), "and");
+
+        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.slice(), "a");
+
+        assert_eq!(lex.next(), Some(Ok(Token::ValueRef)));
+        assert_eq!(lex.slice(), "value 10 lines below");
+
+        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.slice(), ".");
 
         assert_eq!(lex.next(), None);
     }
