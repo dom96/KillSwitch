@@ -34,6 +34,13 @@ pub enum Token {
     #[regex(r"value [0-9]+ line(s)? below")]
     ValueRef,
 
+    // TODO: NaN
+    #[regex(r"[+-]?(?:[0-9](?:_?[0-9])*\.[0-9](?:_?[0-9])*|\.[0-9](?:_?[0-9])*)(?:[eE][+-]?[0-9](?:_?[0-9])*)?|[+-]?[0-9](?:_?[0-9])*[eE][+-]?[0-9](?:_?[0-9])*")]
+    FloatLiteral,
+
+    #[regex(r"[+-]?[0-9](?:_?[0-9])*")]
+    IntegerLiteral,
+
     #[token("\n")]
     NewLine,
 
@@ -333,6 +340,52 @@ mod tests {
         for word in words {
             assert_eq!(lex.next(), Some(Ok(Token::Word)));
             assert_eq!(lex.slice(), word);
+        }
+    }
+
+    #[test]
+    fn test_floats() {
+        let mut lex = Token::lexer("They never found their temperatures to be 1.8.");
+
+        let words = vec![
+            "They",
+            "never",
+            "found",
+            "their",
+            "temperatures",
+            "to",
+            "be",
+        ];
+        for word in words {
+            assert_eq!(lex.next(), Some(Ok(Token::Word)));
+            assert_eq!(lex.slice(), word);
+        }
+
+        assert_eq!(lex.next(), Some(Ok(Token::FloatLiteral)));
+        assert_eq!(lex.slice(), "1.8");
+
+        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.slice(), ".");
+
+        assert_eq!(lex.next(), None);
+
+        let floats = vec!["-1.5", "1_500.0", "1e-5", "1_000e1_000"];
+
+        for float in floats {
+            let mut float_lex = Token::lexer(float);
+            assert_eq!(float_lex.next(), Some(Ok(Token::FloatLiteral)));
+            assert_eq!(float_lex.slice(), float);
+        }
+    }
+
+    #[test]
+    fn test_int() {
+        let integers = vec!["-1", "1_500", "42"];
+
+        for int in integers {
+            let mut int_lex = Token::lexer(int);
+            assert_eq!(int_lex.next(), Some(Ok(Token::IntegerLiteral)));
+            assert_eq!(int_lex.slice(), int);
         }
     }
 }
