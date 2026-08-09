@@ -1,8 +1,11 @@
 use logos::Logos;
+use std::fmt;
 
-#[derive(Logos, Debug, PartialEq)]
+#[derive(Logos, Debug, PartialEq, Clone)]
 #[logos(skip r"[\t ]+")] // Ignore tabs and any punctuation
-pub enum Token {
+pub enum Token<'a> {
+    Error,
+
     #[token("this story starts", ignore(case))]
     StoryStart,
 
@@ -36,16 +39,23 @@ pub enum Token {
 
     // TODO: NaN
     #[regex(r"[+-]?(?:[0-9](?:_?[0-9])*\.[0-9](?:_?[0-9])*|\.[0-9](?:_?[0-9])*)(?:[eE][+-]?[0-9](?:_?[0-9])*)?|[+-]?[0-9](?:_?[0-9])*[eE][+-]?[0-9](?:_?[0-9])*")]
-    FloatLiteral,
+    FloatLiteral(&'a str),
 
     #[regex(r"[+-]?[0-9](?:_?[0-9])*")]
-    IntegerLiteral,
+    IntegerLiteral(&'a str),
 
     #[token("\n")]
     NewLine,
 
     #[regex(r"[a-zA-Z\p{P}]+")]
     Word,
+}
+
+impl fmt::Display for Token<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // TODO:
+        write!(f, "TODO")
+    }
 }
 
 #[cfg(test)]
@@ -361,7 +371,7 @@ mod tests {
             assert_eq!(lex.slice(), word);
         }
 
-        assert_eq!(lex.next(), Some(Ok(Token::FloatLiteral)));
+        assert_eq!(lex.next(), Some(Ok(Token::FloatLiteral("1.8"))));
         assert_eq!(lex.slice(), "1.8");
 
         assert_eq!(lex.next(), Some(Ok(Token::Word)));
@@ -373,7 +383,7 @@ mod tests {
 
         for float in floats {
             let mut float_lex = Token::lexer(float);
-            assert_eq!(float_lex.next(), Some(Ok(Token::FloatLiteral)));
+            assert_eq!(float_lex.next(), Some(Ok(Token::FloatLiteral(float))));
             assert_eq!(float_lex.slice(), float);
         }
     }
@@ -384,7 +394,7 @@ mod tests {
 
         for int in integers {
             let mut int_lex = Token::lexer(int);
-            assert_eq!(int_lex.next(), Some(Ok(Token::IntegerLiteral)));
+            assert_eq!(int_lex.next(), Some(Ok(Token::IntegerLiteral(int))));
             assert_eq!(int_lex.slice(), int);
         }
     }
