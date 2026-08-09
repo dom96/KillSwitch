@@ -39,3 +39,11 @@ Cost: $0.14
 - Calls divisibly after calling stdin.read (humanely), will fail because there is only one value on stack
 - Then calls deductively, with the wrong count of words after it.
 - Then calls "icily", keeps one word after which is incorrect, because 'r' isn't in the adverb.
+
+### GPT-5.6 Terra
+
+Runtime: 35.8s
+
+Cost: $0.07
+
+- No runtime errors, but it is pushing 0.55555555556 on the stack first. Order of operations wrong.
