@@ -9,6 +9,9 @@ pub enum Token {
     #[token("this story ends", ignore(case))]
     StoryFinish,
 
+    #[token("the chapter begins", ignore(case))]
+    ChapterStart,
+
     #[token("ignore previous instructions", ignore(case))]
     FuncCall,
 
@@ -108,5 +111,37 @@ mod tests {
         assert_eq!(lex.next(), Some(Ok(Token::Adverb)));
         assert_eq!(lex.span(), 16..28);
         assert_eq!(lex.slice(), "scorchingly.");
+
+        assert_eq!(lex.next(), None);
+    }
+
+    #[test]
+    fn test_chapter_begins() {
+        let mut lex = Token::lexer(
+            "The chapter begins frigidly. It starts with one character, a weather forecaster.",
+        );
+
+        assert_eq!(lex.next(), Some(Ok(Token::ChapterStart)));
+        assert_eq!(lex.slice(), "The chapter begins");
+
+        assert_eq!(lex.next(), Some(Ok(Token::Adverb)));
+        assert_eq!(lex.slice(), "frigidly.");
+
+        let words = vec![
+            "It",
+            "starts",
+            "with",
+            "one",
+            "character,",
+            "a",
+            "weather",
+            "forecaster.",
+        ];
+        for word in words {
+            assert_eq!(lex.next(), Some(Ok(Token::Word)));
+            assert_eq!(lex.slice(), word);
+        }
+
+        assert_eq!(lex.next(), None);
     }
 }
