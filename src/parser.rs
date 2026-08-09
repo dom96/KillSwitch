@@ -5,11 +5,11 @@ use chumsky::{
 use logos::Logos;
 use std::fmt;
 
-use crate::lexer::Token;
+use crate::{lexer::Token, parser::Node::IntLiteral};
 
 #[derive(Clone, Debug)]
-enum Node {
-    Story(Vec<Self>),
+pub enum Node {
+    Story(String, Vec<Self>),
     Chapter(Vec<Self>),
     FuncCall(String, i32), // ident, number of words
     IntLiteral(i64),       // TODO: Do I need to save line number?
@@ -22,8 +22,8 @@ enum Node {
 impl fmt::Display for Node {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Node::Story(nodes) => {
-                write!(f, "Story(")?;
+            Node::Story(ident, nodes) => {
+                write!(f, "Story({}, ", ident)?;
                 for (i, node) in nodes.iter().enumerate() {
                     if i != 0 {
                         write!(f, ", ")?;
@@ -53,17 +53,31 @@ impl fmt::Display for Node {
 }
 
 // Based on example in https://github.com/zesterer/chumsky/blob/main/examples/logos.rs#L73.
-fn parser<'tok, 'src: 'tok, I>()
+pub fn parser<'tok, 'src: 'tok, I>()
 -> impl Parser<'tok, I, Vec<Node>, extra::Err<Rich<'tok, Token<'src>>>>
 where
     I: ValueInput<'tok, Token = Token<'src>, Span = SimpleSpan>,
 {
     let single_node = recursive(|value| {
-        let atom = select! {
-            Token::FloatLiteral(s) => Node::FloatLiteral(s.parse().unwrap())
-        };
+        let func_call = just(Token::FuncCall)
+            .then(just(Token::Adverb))
+            .then(just(Token::Word).repeated().collect::<Vec<_>>())
+            .then_ignore(just(Token::NewLine))
+            .map(|((_func, ident), words)| Node::FuncCall(ident.to_string(), words.len() as i32));
 
-        atom
+        let atom = select! {
+            Token::FloatLiteral(s) => Node::FloatLiteral(s.parse().unwrap()),
+            Token::NewLine => IntLiteral(42)
+        }
+        .or(func_call);
+
+        let story = just(Token::Adverb)
+            .then(value.repeated().collect::<Vec<_>>())
+            .delimited_by(just(Token::StoryStart), just(Token::StoryFinish))
+            .then_ignore(just(Token::Adverb))
+            .map(|(ident, stmts)| Node::Story(ident.to_string(), stmts));
+
+        atom.or(story)
     });
 
     single_node.repeated().collect()

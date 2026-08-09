@@ -53,8 +53,9 @@ pub enum Token<'a> {
 
 impl fmt::Display for Token<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // TODO:
-        write!(f, "TODO")
+        write!(f, "{:?}", self)?;
+
+        Ok(())
     }
 }
 
