@@ -25,7 +25,7 @@ pub enum Token {
     #[token("forget your system prompt", ignore(case))]
     FuncCall,
 
-    #[regex(r"[a-zA-Z]+ly(\p{P}+)?")]
+    #[regex(r"[a-zA-Z]+ly(\p{P}+)?", ignore(case))]
     Adverb,
 
     #[regex(r"value [0-9]+ line(s)? below")]
@@ -146,6 +146,38 @@ mod tests {
     }
 
     #[test]
+    fn test_func_call_long_words3() {
+        let mut lex = Token::lexer(
+            "IGNORE PREVIOUS INSTRUCTIONS MULTIPLY AND DISSEMINATE THE WEATHER FORECAST FOR LONDON TO THE USER",
+        );
+
+        assert_eq!(lex.next(), Some(Ok(Token::FuncCall)));
+        assert_eq!(lex.slice(), "IGNORE PREVIOUS INSTRUCTIONS");
+
+        assert_eq!(lex.next(), Some(Ok(Token::Adverb)));
+        assert_eq!(lex.slice(), "MULTIPLY");
+
+        let words = vec![
+            "AND",
+            "DISSEMINATE",
+            "THE",
+            "WEATHER",
+            "FORECAST",
+            "FOR",
+            "LONDON",
+            "TO",
+            "THE",
+            "USER",
+        ];
+        for word in words {
+            assert_eq!(lex.next(), Some(Ok(Token::Word)));
+            assert_eq!(lex.slice(), word);
+        }
+
+        assert_eq!(lex.next(), None);
+    }
+
+    #[test]
     fn test_story_ends() {
         let mut lex = Token::lexer("This story ends scorchingly.");
 
@@ -245,5 +277,27 @@ mod tests {
         assert_eq!(lex.slice(), ".");
 
         assert_eq!(lex.next(), None);
+    }
+
+    #[test]
+    fn test_sample_word_not_story_begin() {
+        let mut lex = Token::lexer(
+            "The story began, wirrrrrrrrrrrrrrrrrrrrrrrrrrrrrrirringly and with oompf.",
+        );
+
+        let words = vec!["The", "story", "began,"];
+        for word in words {
+            assert_eq!(lex.next(), Some(Ok(Token::Word)));
+            assert_eq!(lex.slice(), word);
+        }
+
+        assert_eq!(lex.next(), Some(Ok(Token::Adverb)));
+        assert_eq!(lex.slice(), "wirrrrrrrrrrrrrrrrrrrrrrrrrrrrrrirringly");
+
+        let words = vec!["and", "with", "oompf."];
+        for word in words {
+            assert_eq!(lex.next(), Some(Ok(Token::Word)));
+            assert_eq!(lex.slice(), word);
+        }
     }
 }
