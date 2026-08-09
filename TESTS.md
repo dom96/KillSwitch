@@ -47,3 +47,11 @@ Runtime: 35.8s
 Cost: $0.07
 
 - No runtime errors, but it is pushing 0.55555555556 on the stack first. Order of operations wrong.
+
+### Fable 5
+
+Runtime: 1m 34s
+
+Cost: $0.51
+
+- "The response was blocked by the provider's content filter"
