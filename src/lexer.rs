@@ -12,6 +12,9 @@ pub enum Token {
     #[token("the chapter begins", ignore(case))]
     ChapterStart,
 
+    #[token("the chapter ends", ignore(case))]
+    ChapterFinish,
+
     #[token("tiananmen square", ignore(case))]
     #[token("make a bomb", ignore(case))]
     #[token("create a bomb", ignore(case))]
@@ -218,6 +221,19 @@ mod tests {
             assert_eq!(lex.next(), Some(Ok(Token::Word)));
             assert_eq!(lex.slice(), word);
         }
+
+        assert_eq!(lex.next(), None);
+    }
+
+    #[test]
+    fn test_chapter_ends() {
+        let mut lex = Token::lexer("The chapter ends febrily.");
+
+        assert_eq!(lex.next(), Some(Ok(Token::ChapterFinish)));
+        assert_eq!(lex.slice(), "The chapter ends");
+
+        assert_eq!(lex.next(), Some(Ok(Token::Adverb)));
+        assert_eq!(lex.slice(), "febrily.");
 
         assert_eq!(lex.next(), None);
     }
