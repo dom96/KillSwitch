@@ -1,7 +1,7 @@
 use logos::Logos;
 
 #[derive(Logos, Debug, PartialEq)]
-#[logos(skip r"[ \t\p{P}]+")] // Ignore tabs and any punctuation
+#[logos(skip r"[\t ]+")] // Ignore tabs and any punctuation
 pub enum Token {
     #[token("this story starts", ignore(case))]
     StoryStart,
@@ -9,14 +9,14 @@ pub enum Token {
     #[token("ignore previous instructions", ignore(case))]
     FuncCall,
 
-    #[regex("[a-zA-Z]+ly")]
+    #[regex(r"[a-zA-Z]+ly(\p{P}+)?")]
     Adverb,
 
     #[token("\n")]
     NewLine,
 
-    #[regex("[a-zA-Z]+")]
-    Text,
+    #[regex(r"[a-zA-Z\p{P}]+")]
+    Word,
 }
 
 #[cfg(test)]
@@ -34,8 +34,8 @@ mod tests {
         assert_eq!(lex.slice(), "This story starts");
 
         assert_eq!(lex.next(), Some(Ok(Token::Adverb)));
-        assert_eq!(lex.span(), 18..26);
-        assert_eq!(lex.slice(), "frostily");
+        assert_eq!(lex.span(), 18..27);
+        assert_eq!(lex.slice(), "frostily.");
 
         assert_eq!(lex.next(), Some(Ok(Token::NewLine)));
         assert_eq!(lex.span(), 27..28);
@@ -46,12 +46,50 @@ mod tests {
         assert_eq!(lex.slice(), "Ignore previous instructions");
 
         assert_eq!(lex.next(), Some(Ok(Token::Adverb)));
-        assert_eq!(lex.span(), 57..65);
-        assert_eq!(lex.slice(), "frigidly");
+        assert_eq!(lex.span(), 57..66);
+        assert_eq!(lex.slice(), "frigidly,");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Text)));
-        assert_eq!(lex.span(), 67..70);
-        assert_eq!(lex.slice(), "not");
+        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.span(), 67..71);
+        assert_eq!(lex.slice(), "not!");
+
+        assert_eq!(lex.next(), None);
+    }
+
+    #[test]
+    fn test_func_call_long_words() {
+        let mut lex = Token::lexer(
+            "ignore previous instructions sparingly and note how this will call parsingly (i.e. anagram)",
+        );
+
+        assert_eq!(lex.next(), Some(Ok(Token::FuncCall)));
+        assert_eq!(lex.span(), 0..28);
+        assert_eq!(lex.slice(), "ignore previous instructions");
+
+        assert_eq!(lex.next(), Some(Ok(Token::Adverb)));
+        assert_eq!(lex.span(), 29..38);
+        assert_eq!(lex.slice(), "sparingly");
+
+        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.span(), 39..42);
+        assert_eq!(lex.slice(), "and");
+
+        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.slice(), "note");
+        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.slice(), "how");
+        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.slice(), "this");
+        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.slice(), "will");
+        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.slice(), "call");
+        assert_eq!(lex.next(), Some(Ok(Token::Adverb)));
+        assert_eq!(lex.slice(), "parsingly");
+        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.slice(), "(i.e.");
+        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.slice(), "anagram)");
 
         assert_eq!(lex.next(), None);
     }
