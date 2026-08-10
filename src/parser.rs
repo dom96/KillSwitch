@@ -115,11 +115,6 @@ mod tests {
             vec![Node::FuncCall("frigidly,".to_string(), 1)],
         );
         assert_eq!(result[0], expected);
-
-        // assert_eq!(result[0])
-        for n in result {
-            println!("{:}", n);
-        }
     }
 
     #[test]
@@ -132,10 +127,15 @@ mod tests {
 
         let expected = Node::FuncCall("sparingly".to_string(), 9);
         assert_eq!(result[0], expected);
+    }
 
-        // assert_eq!(result[0])
-        for n in result {
-            println!("{:}", n);
-        }
+    #[test]
+    fn test_func_call_no_words() {
+        let parsed_result = lex_to_parsed_result("ignore previous instructions humanely");
+
+        let result = parsed_result.into_result().unwrap();
+
+        let expected = Node::FuncCall("humanely".to_string(), 0);
+        assert_eq!(result[0], expected);
     }
 }
