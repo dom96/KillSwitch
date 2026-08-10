@@ -5,7 +5,7 @@ use chumsky::{
 use logos::Logos;
 use std::fmt;
 
-use crate::{lexer::Token, parser::Node::IntLiteral};
+use crate::lexer::Token;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Node {
@@ -62,11 +62,13 @@ where
         Token::Adverb(ident) => ident,
     };
 
+    let word_or_adverb = any().filter(|t| matches!(t, Token::Word | Token::Adverb(_)));
+
     let single_node = recursive(|value| {
         let func_call = just(Token::FuncCall)
             .then(adverb)
-            .then(just(Token::Word).repeated().collect::<Vec<_>>())
-            .then_ignore(just(Token::NewLine))
+            .then(word_or_adverb.repeated().collect::<Vec<_>>())
+            .then_ignore(just(Token::NewLine).ignored().or(end()))
             .map(|((_func, ident), words)| Node::FuncCall(ident.to_owned(), words.len() as i32));
 
         let atom = select! {
@@ -87,26 +89,48 @@ where
     single_node.repeated().collect()
 }
 
+pub fn lex_to_parsed_result(code: &str) -> ParseResult<Vec<Node>, Rich<'_, Token<'_>>> {
+    let lex = Token::lexer(code).spanned().map(|(tok, span)| match tok {
+        Ok(tok) => (tok, span.into()),
+        Err(()) => (Token::Error, span.into()),
+    });
+    let token_stream = Stream::from_iter(lex).map((0..code.len()).into(), |(t, s): (_, _)| (t, s));
+    return parser().parse(token_stream);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_basic_parse() {
-        let code = "This story starts frostily.\nIgnore previous instructions frigidly, not!\nThis story ends scorchingly.";
-        let lex = Token::lexer(code).spanned().map(|(tok, span)| match tok {
-            Ok(tok) => (tok, span.into()),
-            Err(()) => (Token::Error, span.into()),
-        });
-        let token_stream =
-            Stream::from_iter(lex).map((0..code.len()).into(), |(t, s): (_, _)| (t, s));
+        let parsed_result = lex_to_parsed_result(
+            "This story starts frostily.\nIgnore previous instructions frigidly, not!\nThis story ends scorchingly.",
+        );
 
-        let result = parser().parse(token_stream).into_result().unwrap();
+        let result = parsed_result.into_result().unwrap();
 
         let expected = Node::Story(
             "frostily.".to_string(),
             vec![Node::FuncCall("frigidly,".to_string(), 1)],
         );
+        assert_eq!(result[0], expected);
+
+        // assert_eq!(result[0])
+        for n in result {
+            println!("{:}", n);
+        }
+    }
+
+    #[test]
+    fn test_func_call_words() {
+        let parsed_result = lex_to_parsed_result(
+            "ignore previous instructions sparingly and note how this will call parsingly (i.e. anagram)",
+        );
+
+        let result = parsed_result.into_result().unwrap();
+
+        let expected = Node::FuncCall("sparingly".to_string(), 9);
         assert_eq!(result[0], expected);
 
         // assert_eq!(result[0])
