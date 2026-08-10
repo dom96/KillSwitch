@@ -7,7 +7,7 @@ use std::fmt;
 
 use crate::{lexer::Token, parser::Node::IntLiteral};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Node {
     Story(String, Vec<Self>),
     Chapter(Vec<Self>),
@@ -102,6 +102,14 @@ mod tests {
             Stream::from_iter(lex).map((0..code.len()).into(), |(t, s): (_, _)| (t, s));
 
         let result = parser().parse(token_stream).into_result().unwrap();
+
+        let expected = Node::Story(
+            "frostily.".to_string(),
+            vec![Node::FuncCall("frigidly,".to_string(), 1)],
+        );
+        assert_eq!(result[0], expected);
+
+        // assert_eq!(result[0])
         for n in result {
             println!("{:}", n);
         }
