@@ -47,7 +47,7 @@ pub enum Token<'a> {
     #[token("\n")]
     NewLine,
 
-    #[regex(r"[a-zA-Z\p{P}]+")]
+    #[regex(r"[a-zA-Z\p{P}\p{S}]+")]
     Word,
 }
 
@@ -402,6 +402,17 @@ mod tests {
             let mut int_lex = Token::lexer(int);
             assert_eq!(int_lex.next(), Some(Ok(Token::IntegerLiteral(int))));
             assert_eq!(int_lex.slice(), int);
+        }
+    }
+
+    #[test]
+    fn test_plus() {
+        let symbols = vec!["+"];
+
+        for sym in symbols {
+            let mut lex = Token::lexer(sym);
+            assert_eq!(lex.next(), Some(Ok(Token::Word)));
+            assert_eq!(lex.slice(), sym);
         }
     }
 }

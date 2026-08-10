@@ -17,6 +17,7 @@ pub enum Node {
     FuncReturn,
     ValueRef(i64),  // count of "lines below"
     Adverb(String), // can be referenced by ValueRef
+    Word,
 }
 
 impl fmt::Display for Node {
@@ -48,6 +49,7 @@ impl fmt::Display for Node {
             Node::FuncReturn => write!(f, "FuncReturn"),
             Node::ValueRef(lines) => write!(f, "ValueRef({})", lines),
             Node::Adverb(adverb) => write!(f, "Adverb({})", adverb),
+            Node::Word => write!(f, "Word"),
         }
     }
 }
@@ -73,6 +75,9 @@ where
 
         let atom = select! {
             Token::FloatLiteral(s) => Node::FloatLiteral(s.parse().unwrap()),
+            Token::IntegerLiteral(s) => Node::IntLiteral(s.parse().unwrap()),
+            Token::Word => Node::Word,
+            Token::Adverb(w) => Node::Adverb(w.to_owned())
         }
         .or(func_call)
         .padded_by(just(Token::NewLine).repeated());
@@ -137,5 +142,21 @@ mod tests {
 
         let expected = Node::FuncCall("humanely".to_string(), 0);
         assert_eq!(result[0], expected);
+    }
+
+    #[test]
+    fn test_words() {
+        let parsed_result = lex_to_parsed_result(
+            "He says \"Celsius to Fahrenheit uses the formula (C * 9/5) + 32\".
+            He also says \"The temperature in Celsius will be on the top of the stack. \
+            So we need to push 9/5 i.e. 1.8 on the stack, then call multiply, then \
+            push 32 on the stack, then call add\".",
+        );
+
+        let result = parsed_result.into_result().unwrap();
+
+        // We only care that this parsed fine since it's just text. Not worried about what it
+        // parses as for now.
+        assert_eq!(result.len(), 57);
     }
 }
