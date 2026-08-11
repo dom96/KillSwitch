@@ -1,4 +1,4 @@
-use logos::Logos;
+use logos::{Lexer, Logos};
 use std::fmt;
 
 #[derive(Logos, Debug, PartialEq, Clone)]
@@ -34,8 +34,8 @@ pub enum Token<'a> {
     #[regex(r"[a-zA-Z]+ly(\p{P}+)?", callback = |lex| lex.slice(), ignore(case))]
     Adverb(&'a str),
 
-    #[regex(r"value [0-9]+ line(s)? below")]
-    ValueRef,
+    #[regex(r"value ([0-9]+) line(s)? below", parse_number)]
+    ValueRef(usize),
 
     // TODO: NaN
     #[regex(r"[+-]?(?:[0-9](?:_?[0-9])*\.[0-9](?:_?[0-9])*|\.[0-9](?:_?[0-9])*)(?:[eE][+-]?[0-9](?:_?[0-9])*)?|[+-]?[0-9](?:_?[0-9])*[eE][+-]?[0-9](?:_?[0-9])*")]
@@ -57,6 +57,17 @@ impl fmt::Display for Token<'_> {
 
         Ok(())
     }
+}
+
+fn parse_number<'a>(lex: &mut Lexer<'a, Token<'a>>) -> Option<usize> {
+    let slice = lex.slice();
+
+    let without_prefix = &slice[6..];
+    let space_idx = without_prefix.find(' ').unwrap();
+
+    // Extract the string and parse it into a usize.
+    // Returning an Option allows logos to handle potential overflow errors gracefully.
+    without_prefix[..space_idx].parse().ok()
 }
 
 #[cfg(test)]
@@ -295,7 +306,7 @@ mod tests {
             assert_eq!(lex.slice(), word);
         }
 
-        assert_eq!(lex.next(), Some(Ok(Token::ValueRef)));
+        assert_eq!(lex.next(), Some(Ok(Token::ValueRef(1))));
         assert_eq!(lex.slice(), "value 1 line below");
 
         assert_eq!(lex.next(), Some(Ok(Token::Word)));
@@ -304,7 +315,7 @@ mod tests {
         assert_eq!(lex.next(), Some(Ok(Token::Word)));
         assert_eq!(lex.slice(), "a");
 
-        assert_eq!(lex.next(), Some(Ok(Token::ValueRef)));
+        assert_eq!(lex.next(), Some(Ok(Token::ValueRef(10))));
         assert_eq!(lex.slice(), "value 10 lines below");
 
         assert_eq!(lex.next(), Some(Ok(Token::Word)));
@@ -323,7 +334,7 @@ mod tests {
             assert_eq!(lex.slice(), word);
         }
 
-        assert_eq!(lex.next(), Some(Ok(Token::ValueRef)));
+        assert_eq!(lex.next(), Some(Ok(Token::ValueRef(2))));
         assert_eq!(lex.slice(), "value 2 lines below");
 
         assert_eq!(lex.next(), Some(Ok(Token::Word)));

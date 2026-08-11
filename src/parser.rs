@@ -15,8 +15,8 @@ pub enum Node {
     IntLiteral(i64),       // TODO: Do I need to save line number?
     FloatLiteral(f64),
     FuncReturn,
-    ValueRef(i64),  // count of "lines below"
-    Adverb(String), // can be referenced by ValueRef
+    ValueRef(usize), // count of "lines below"
+    Adverb(String),  // can be referenced by ValueRef
     Word,
 }
 
@@ -79,6 +79,7 @@ where
             Token::Word => Node::Word,
             Token::Adverb(w) => Node::Adverb(w.to_owned()),
             Token::Return => Node::FuncReturn,
+            Token::ValueRef(line_count) => Node::ValueRef(line_count),
         }
         .or(func_call)
         .padded_by(just(Token::NewLine).repeated());
@@ -189,6 +190,22 @@ mod tests {
             Node::Word,
             Node::Word,
             Node::FuncReturn,
+            Node::Word,
+        ];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_val_ref() {
+        let parsed_result = lex_to_parsed_result("They wanted a value 1 line below.");
+
+        let result = parsed_result.into_result().unwrap();
+
+        let expected = [
+            Node::Word,
+            Node::Word,
+            Node::Word,
+            Node::ValueRef(1),
             Node::Word,
         ];
         assert_eq!(result, expected);
