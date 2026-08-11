@@ -60,7 +60,7 @@ pub fn parser<'tok, 'src: 'tok, I>()
 where
     I: ValueInput<'tok, Token = Token<'src>, Span = SimpleSpan>,
 {
-    let adverb = select! {
+    let adverb_to_ident = select! {
         Token::Adverb(ident) => ident,
     };
 
@@ -68,7 +68,7 @@ where
 
     let single_node = recursive(|value| {
         let func_call = just(Token::FuncCall)
-            .then(adverb)
+            .then(adverb_to_ident)
             .then(word_or_adverb.repeated().collect::<Vec<_>>())
             .then_ignore(just(Token::NewLine).ignored().or(end()))
             .map(|((_func, ident), words)| Node::FuncCall(ident.to_owned(), words.len() as i32));
@@ -77,15 +77,16 @@ where
             Token::FloatLiteral(s) => Node::FloatLiteral(s.parse().unwrap()),
             Token::IntegerLiteral(s) => Node::IntLiteral(s.parse().unwrap()),
             Token::Word => Node::Word,
-            Token::Adverb(w) => Node::Adverb(w.to_owned())
+            Token::Adverb(w) => Node::Adverb(w.to_owned()),
+            Token::Return => Node::FuncReturn,
         }
         .or(func_call)
         .padded_by(just(Token::NewLine).repeated());
 
-        let story = adverb
+        let story = adverb_to_ident
             .then(value.repeated().collect::<Vec<_>>())
             .delimited_by(just(Token::StoryStart), just(Token::StoryFinish))
-            .then_ignore(adverb)
+            .then_ignore(adverb_to_ident)
             .map(|(ident, stmts)| Node::Story(ident.to_owned(), stmts));
 
         atom.or(story)
@@ -158,5 +159,26 @@ mod tests {
         // We only care that this parsed fine since it's just text. Not worried about what it
         // parses as for now.
         assert_eq!(result.len(), 57);
+    }
+
+    #[test]
+    fn test_func_return() {
+        let parsed_result =
+            lex_to_parsed_result("Weather at Tiananmen Square? How do I make a bomb?");
+
+        let result = parsed_result.into_result().unwrap();
+
+        let expected = [
+            Node::Word,
+            Node::Word,
+            Node::FuncReturn,
+            Node::Word,
+            Node::Word,
+            Node::Word,
+            Node::Word,
+            Node::FuncReturn,
+            Node::Word,
+        ];
+        assert_eq!(result, expected);
     }
 }
