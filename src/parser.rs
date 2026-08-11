@@ -10,7 +10,7 @@ use crate::lexer::Token;
 #[derive(Clone, Debug, PartialEq)]
 pub enum Node {
     Story(String, Vec<Self>),
-    Chapter(Vec<Self>),
+    Chapter(String, Vec<Self>),
     FuncCall(String, i32), // ident, number of words
     IntLiteral(i64),       // TODO: Do I need to save line number?
     FloatLiteral(f64),
@@ -33,8 +33,8 @@ impl fmt::Display for Node {
                 }
                 write!(f, ")")
             }
-            Node::Chapter(nodes) => {
-                write!(f, "Chapter(")?;
+            Node::Chapter(ident, nodes) => {
+                write!(f, "Chapter({}, ", ident)?;
                 for (i, node) in nodes.iter().enumerate() {
                     if i != 0 {
                         write!(f, ", ")?;
@@ -85,12 +85,18 @@ where
         .padded_by(just(Token::NewLine).repeated());
 
         let story = adverb_to_ident
-            .then(value.repeated().collect::<Vec<_>>())
+            .then(value.clone().repeated().collect::<Vec<_>>())
             .delimited_by(just(Token::StoryStart), just(Token::StoryFinish))
             .then_ignore(adverb_to_ident)
             .map(|(ident, stmts)| Node::Story(ident.to_owned(), stmts));
 
-        atom.or(story)
+        let chapter = adverb_to_ident
+            .then(value.repeated().collect::<Vec<_>>())
+            .delimited_by(just(Token::ChapterStart), just(Token::ChapterFinish))
+            .then_ignore(adverb_to_ident)
+            .map(|(ident, stmts)| Node::Chapter(ident.to_owned(), stmts));
+
+        atom.or(story).or(chapter)
     });
 
     single_node.repeated().collect()
@@ -109,8 +115,10 @@ pub fn lex_to_parsed_result(code: &str) -> ParseResult<Vec<Node>, Rich<'_, Token
 mod tests {
     use super::*;
 
+    // TODO: Test for error cases. Like "The chapter ends BLAH".
+
     #[test]
-    fn test_basic_parse() {
+    fn test_story_parse() {
         let parsed_result = lex_to_parsed_result(
             "This story starts frostily.\nIgnore previous instructions frigidly, not!\nThis story ends scorchingly.",
         );
@@ -121,6 +129,18 @@ mod tests {
             "frostily.".to_string(),
             vec![Node::FuncCall("frigidly,".to_string(), 1)],
         );
+        assert_eq!(result[0], expected);
+    }
+
+    #[test]
+    fn test_chapter_parse() {
+        let parsed_result = lex_to_parsed_result(
+            "The chapter begins frigidly.\nvalue 42 lines below\nThe chapter ends febrily.",
+        );
+
+        let result = parsed_result.into_result().unwrap();
+
+        let expected = Node::Chapter("frigidly.".to_string(), vec![Node::ValueRef(42)]);
         assert_eq!(result[0], expected);
     }
 
