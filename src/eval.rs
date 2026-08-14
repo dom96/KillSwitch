@@ -1,0 +1,203 @@
+use crate::parser::Node;
+use std::collections::{HashMap, HashSet};
+use std::io;
+use std::rc::Rc;
+use std::sync::LazyLock;
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Value {
+    Integer(i64),
+    Float(f64),
+    Text(String),
+}
+
+pub struct Evaluator {
+    // Used during evaluation.
+    stack: Vec<Value>,
+
+    // The nodes that this evaluator is evaluating.
+    nodes: Vec<Node>,
+
+    // A list of named nodes: chapters, stories, etc.
+    // Because of Rust's lifetimes, we use an index to refer to the Node,
+    // rather than a reference to the Node.
+    // TODO: Right now this only allows us to refer to a top-level node.
+    idents: HashMap<String, usize>,
+}
+
+static BUILT_INS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
+    let mut set = HashSet::new();
+    set.insert("humanely");
+    set.insert("multiply");
+    // TODO: Add more.
+    set
+});
+
+pub type Span = std::ops::Range<usize>;
+
+#[derive(Debug, PartialEq)]
+pub struct EvalError {
+    message: String,
+    span: Span,
+}
+
+impl Evaluator {
+    pub fn new(nodes: Vec<Node>) -> Self {
+        Self {
+            stack: Vec::new(),
+            nodes: nodes,
+            idents: HashMap::new(),
+        }
+    }
+
+    fn push(&mut self, value: Value) {
+        self.stack.push(value);
+    }
+
+    fn pop(&mut self) -> Option<Value> {
+        self.stack.pop()
+    }
+
+    pub fn eval_script(&mut self) -> Result<Vec<Value>, EvalError> {
+        // Verification to ensure we aren't accidentally calling this function twice.
+        assert_eq!(self.idents.len(), 0);
+
+        // Pre-process nodes to find referencable elements. Like chapters, stories, values.
+        //
+        // An (index) reference to the Node containing the entry point of the
+        // script.
+        let mut story: Option<usize> = None;
+
+        for (i, n) in self.nodes.iter().enumerate() {
+            match n {
+                Node::Story(name, _children) => {
+                    story = Some(i);
+                    if self.idents.contains_key(name) {
+                        return Err(EvalError {
+                            message: format!("Duplicate identifier {}", &name),
+                            span: (3..5), // XXX
+                        });
+                    }
+                    self.idents.insert(name.clone(), i);
+                }
+                _ => {
+                    unimplemented!("TODO");
+                }
+            }
+        }
+
+        // Now start execution starting with children of `story`.
+        match story {
+            Some(i) => match self.nodes[i].clone() {
+                // TODO: Remove clone.
+                Node::Story(_, children) => {
+                    for child in children {
+                        self.eval_node(&child)?
+                    }
+                }
+                _ => panic!("We should never not get a Story here."),
+            },
+            _ => {
+                return Err(EvalError {
+                    message: "Evaluated script needs an entrypoint".to_string(),
+                    span: (0..0),
+                });
+            }
+        }
+
+        return Ok(self.stack.clone());
+    }
+
+    fn eval_node(&mut self, node: &Node) -> Result<(), EvalError> {
+        match node {
+            Node::FuncCall(ident, _word_count) => self.eval_func_call(ident),
+            _ => {
+                unimplemented!("TODO");
+            }
+        }
+    }
+
+    fn eval_func_call(&mut self, ident: &String) -> Result<(), EvalError> {
+        // Find the ident. Check built-ins first.
+
+        println!("Calling {}", ident);
+        for built_in in BUILT_INS.iter() {
+            if is_anagram(ident, built_in) {
+                println!("Built in {}", built_in);
+                match *built_in {
+                    "humanely" => {
+                        let mut input = String::new();
+                        io::stdin()
+                            .read_line(&mut input)
+                            .expect("Failed to read line");
+
+                        self.push(Value::Text(input));
+                        return Ok(());
+                    }
+                    "multiply" => {
+                        let a = self.pop();
+                        let b = self.pop();
+                        if a.is_none() || b.is_none() {
+                            return Err(EvalError {
+                                message: "Need two values on stack for `multiply`".to_string(),
+                                span: (0..0), // TODO:
+                            });
+                        }
+
+                        match (a, b) {
+                            (Some(Value::Integer(a_val)), Some(Value::Integer(b_val))) => {
+                                self.push(Value::Integer(a_val * b_val));
+                            }
+                            _ => {
+                                unimplemented!("TODO");
+                            }
+                        }
+                        return Ok(());
+                    }
+                    &_ => unimplemented!(),
+                }
+            }
+        }
+
+        return Err(EvalError {
+            message: format!("Could not find chapter {}", ident),
+            span: (0..0),
+        });
+    }
+}
+
+// Determines whether `a` is an anagram of `b`.
+// is_anagram("hunyamel", "humanely")
+fn is_anagram(a: &str, b: &str) -> bool {
+    let mut counts_a: HashMap<char, i32> = HashMap::new();
+    let mut counts_b: HashMap<char, i32> = HashMap::new();
+
+    for c in a.chars() {
+        *counts_a.entry(c).or_insert(0) += 1;
+    }
+
+    for c in b.chars() {
+        *counts_b.entry(c).or_insert(0) += 1;
+    }
+
+    return counts_a == counts_b;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_func_call() {
+        let nodes = vec![Node::Story(
+            "testly".to_string(),
+            vec![Node::FuncCall("miltypul".to_string(), 0)],
+        )];
+
+        let mut evaluator = Evaluator::new(nodes);
+        evaluator.push(Value::Integer(5));
+        evaluator.push(Value::Integer(5));
+        let res = evaluator.eval_script();
+        assert_eq!(res, Ok(vec![Value::Integer(25)]));
+    }
+}
