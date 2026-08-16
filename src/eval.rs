@@ -38,6 +38,7 @@ static BUILT_INS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
     set.insert("multiply");
     set.insert("parsingly");
     set.insert("additionally");
+    set.insert("visibly");
     // TODO: Add more.
     set
 });
@@ -154,6 +155,21 @@ impl Evaluator {
         for built_in in BUILT_INS.iter() {
             if is_anagram(&ident, built_in) {
                 match *built_in {
+                    "visibly" => {
+                        let val = self.pop();
+                        match val {
+                            Some(Value::Float(v)) => println!("{}", v),
+                            Some(Value::Integer(v)) => println!("{}", v),
+                            Some(Value::Text(v)) => println!("{}", v),
+                            None => {
+                                return Err(EvalError {
+                                    message: "Need value on stack for `visibly`".to_string(),
+                                    span: span.clone(),
+                                });
+                            }
+                        }
+                        return Ok(());
+                    }
                     "humanely" => {
                         let mut input = String::new();
                         io::stdin()
