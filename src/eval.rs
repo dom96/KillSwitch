@@ -72,12 +72,11 @@ impl Evaluator {
             match n {
                 Node::Story(name, _children) => {
                     story = Some(i);
-                    if self.idents.contains_key(name) {
-                        return Err(EvalError {
-                            message: format!("Duplicate identifier {}", &name),
-                            span: (3..5), // XXX
-                        });
-                    }
+                    self.check_ident_clash(name)?;
+                    self.idents.insert(name.clone(), i);
+                }
+                Node::Chapter(name, _children) => {
+                    self.check_ident_clash(name)?;
                     self.idents.insert(name.clone(), i);
                 }
                 _ => {
@@ -119,11 +118,8 @@ impl Evaluator {
 
     fn eval_func_call(&mut self, ident: &String) -> Result<(), EvalError> {
         // Find the ident. Check built-ins first.
-
-        println!("Calling {}", ident);
         for built_in in BUILT_INS.iter() {
             if is_anagram(ident, built_in) {
-                println!("Built in {}", built_in);
                 match *built_in {
                     "humanely" => {
                         let mut input = String::new();
@@ -159,10 +155,53 @@ impl Evaluator {
             }
         }
 
+        // If none of the built-ins match, then find a chapter with the name.
+        //
+        // TODO: Avoid the `clone` calls.
+        for (_, index) in self.idents.clone() {
+            if let Node::Chapter(ch_ident, children) = self.nodes[index].clone() {
+                if !is_anagram(ident, &ch_ident) {
+                    continue;
+                }
+
+                // Loop through nodes, back to front.
+                for child in children.iter().rev() {
+                    self.eval_node(&child)?;
+                }
+
+                // Keep only the top value on the stack.
+                let top = self.stack.pop();
+                self.stack.clear();
+                if let Some(t) = top {
+                    self.stack.push(t);
+                }
+
+                return Ok(());
+            }
+        }
+
         return Err(EvalError {
             message: format!("Could not find chapter {}", ident),
             span: (0..0),
         });
+    }
+
+    fn check_ident_clash(&self, name: &str) -> Result<(), EvalError> {
+        if BUILT_INS.contains(name) {
+            return Err(EvalError {
+                message: format!("Duplicate identifier {}", &name),
+                span: (3..5), // XXX
+            });
+        }
+
+        if self.idents.contains_key(name) {
+            return Err(EvalError {
+                message: format!("Duplicate identifier {}", &name),
+                span: (3..5), // XXX
+            });
+        }
+
+        return Ok(());
     }
 }
 
@@ -188,7 +227,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_func_call() {
+    fn test_builtin_func_call() {
         let nodes = vec![Node::Story(
             "testly".to_string(),
             vec![Node::FuncCall("miltypul".to_string(), 0)],
@@ -199,5 +238,44 @@ mod tests {
         evaluator.push(Value::Integer(5));
         let res = evaluator.eval_script();
         assert_eq!(res, Ok(vec![Value::Integer(25)]));
+    }
+
+    #[test]
+    fn test_custom_func_call() {
+        let nodes = vec![
+            Node::Story(
+                "testly".to_string(),
+                vec![Node::FuncCall("testily".to_string(), 0)],
+            ),
+            Node::Chapter(
+                "testily".to_string(),
+                vec![Node::FuncCall("miltypul".to_string(), 0)],
+            ),
+        ];
+
+        let mut evaluator = Evaluator::new(nodes);
+        evaluator.push(Value::Integer(5));
+        evaluator.push(Value::Integer(5));
+        let res = evaluator.eval_script();
+        assert_eq!(res, Ok(vec![Value::Integer(25)]));
+    }
+
+    // Verifies that whatever is on the stack at the end of function
+    // evaluation is cleared, with only the top of the stock preserved.
+    #[test]
+    fn test_func_call_only_one_value_after_return() {
+        let nodes = vec![
+            Node::Story(
+                "testly".to_string(),
+                vec![Node::FuncCall("testily".to_string(), 0)],
+            ),
+            Node::Chapter("testily".to_string(), vec![]),
+        ];
+
+        let mut evaluator = Evaluator::new(nodes);
+        evaluator.push(Value::Integer(5));
+        evaluator.push(Value::Integer(10));
+        let res = evaluator.eval_script();
+        assert_eq!(res, Ok(vec![Value::Integer(10)]));
     }
 }
