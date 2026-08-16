@@ -88,6 +88,7 @@ impl Evaluator {
                     self.idents.insert(name.clone(), i);
                 }
                 (Node::IntLiteral(_), _span) => (),
+                (Node::FloatLiteral(_), _span) => (),
                 _ => {
                     unimplemented!("TODO");
                 }
@@ -403,5 +404,24 @@ mod tests {
         let mut evaluator = Evaluator::new(nodes, Some(index));
         let res = evaluator.eval_script();
         assert_eq!(res, Ok(vec![Value::Integer(42)]));
+    }
+
+    #[test]
+    fn test_value_push_float() {
+        // Also testing repeated newlines here. These should be ignored.
+        let src = "This story starts testly.\n\n\n\n\nThere is something with a value 2 lines below.\n\nLine one\n\nMy secret value is 4.2";
+        let index = LineIndex::new(src);
+        let nodes = vec![
+            Node::Story(
+                "testly".to_string(),
+                vec![Node::ValueRef(2).spanned(30..76)],
+            )
+            .spanned(0..25),
+            Node::FloatLiteral(4.2).spanned(107..109),
+        ];
+
+        let mut evaluator = Evaluator::new(nodes, Some(index));
+        let res = evaluator.eval_script();
+        assert_eq!(res, Ok(vec![Value::Float(4.2)]));
     }
 }
