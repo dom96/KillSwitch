@@ -175,6 +175,15 @@ impl Evaluator {
                             (Some(Value::Integer(a_val)), Some(Value::Integer(b_val))) => {
                                 self.push(Value::Integer(a_val * b_val));
                             }
+                            (Some(Value::Float(a_val)), Some(Value::Integer(b_val))) => {
+                                self.push(Value::Float(a_val * b_val as f64));
+                            }
+                            (Some(Value::Integer(a_val)), Some(Value::Float(b_val))) => {
+                                self.push(Value::Float(a_val as f64 * b_val));
+                            }
+                            (Some(Value::Float(a_val)), Some(Value::Float(b_val))) => {
+                                self.push(Value::Float(a_val * b_val));
+                            }
                             _ => {
                                 unimplemented!("TODO");
                             }
