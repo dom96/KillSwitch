@@ -104,7 +104,7 @@ impl Evaluator {
             Some(i) => match self.nodes[i].clone() {
                 // TODO: Remove clone.
                 (Node::Story(_, children), _) => {
-                    for child in children {
+                    for child in children.iter().rev() {
                         let was_return = self.eval_node(&child)?;
                         if was_return {
                             break;
@@ -157,7 +157,6 @@ impl Evaluator {
                         io::stdin()
                             .read_line(&mut input)
                             .expect("Failed to read line");
-
                         self.push(Value::Text(input));
                         return Ok(());
                     }
