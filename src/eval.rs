@@ -28,9 +28,9 @@ pub struct Evaluator {
     // tests as not all nodes care about this.
     line_index: Option<LineIndex>,
 
-    // A mapping from line number to a literal (int/float/str).
+    // A mapping from line number to a literal (int/float/str/adverb).
     // Used for ValueRef evaluation.
-    line_to_literal: HashMap<usize, Value>,
+    line_to_literal: HashMap<usize, Node>,
 }
 
 static BUILT_INS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
@@ -89,6 +89,7 @@ impl Evaluator {
                 }
                 (Node::IntLiteral(_), _span) => (),
                 (Node::FloatLiteral(_), _span) => (),
+                (Node::Adverb(_), _span) => (),
                 _ => {
                     unimplemented!("TODO");
                 }
@@ -222,12 +223,26 @@ impl Evaluator {
             .expect("Evaluator needs LineIndex")
             .get_line(span.start);
         let wanted_line = our_line + lines_below;
-        let wanted_value = self.line_to_literal.get(&wanted_line);
+        let wanted_node = self.line_to_literal.get(&wanted_line);
 
-        match wanted_value {
-            Some(val) => {
+        match wanted_node {
+            Some(node) => {
                 // Push onto the stack.
-                self.stack.push(val.clone());
+                let value = match node {
+                    Node::FloatLiteral(f) => Value::Float(*f),
+                    Node::IntLiteral(i) => Value::Integer(*i),
+                    Node::Adverb(a) => {
+                        // We look up the current focus variable, whatever char it is we count in the
+                        // adverb. Then push that as the value.
+                        let focus_var_value = b'r'; // TODO: Implement variables.
+                        let value = a.bytes().filter(|x| *x == focus_var_value).count() as i64;
+                        Value::Integer(value)
+                    }
+                    _ => {
+                        panic!("Unsupported Node being pushed onto stack");
+                    }
+                };
+                self.stack.push(value);
                 Ok(())
             }
             None => Err(EvalError {
@@ -290,7 +305,7 @@ fn is_anagram(a: &str, b: &str) -> bool {
 fn collect_values(
     nodes: &Vec<Spanned<Node>>,
     line_index: &Option<LineIndex>,
-) -> HashMap<usize, Value> {
+) -> HashMap<usize, Node> {
     let mut line_to_literal = HashMap::new();
     for node in nodes {
         match node {
@@ -299,14 +314,21 @@ fn collect_values(
                     .as_ref()
                     .expect("Evaluator needs LineIndex")
                     .get_line(span.start);
-                line_to_literal.insert(line, Value::Float(*f));
+                line_to_literal.insert(line, Node::FloatLiteral(*f));
             }
-            (Node::IntLiteral(f), span) => {
+            (Node::IntLiteral(i), span) => {
                 let line = line_index
                     .as_ref()
                     .expect("Evaluator needs LineIndex")
                     .get_line(span.start);
-                line_to_literal.insert(line, Value::Integer(*f));
+                line_to_literal.insert(line, Node::IntLiteral(*i));
+            }
+            (Node::Adverb(a), span) => {
+                let line = line_index
+                    .as_ref()
+                    .expect("Evaluator needs LineIndex")
+                    .get_line(span.start);
+                line_to_literal.insert(line, Node::Adverb(a.to_string()));
             }
             (Node::Story(_, children), _) => {
                 line_to_literal.extend(collect_values(children, line_index));
@@ -317,7 +339,6 @@ fn collect_values(
             (Node::FuncCall(_, _), _) => (),
             (Node::FuncReturn, _) => (),
             (Node::ValueRef(_), _) => (),
-            (Node::Adverb(_), _) => (),
             (Node::Word, _) => (),
         }
     }
@@ -423,5 +444,23 @@ mod tests {
         let mut evaluator = Evaluator::new(nodes, Some(index));
         let res = evaluator.eval_script();
         assert_eq!(res, Ok(vec![Value::Float(4.2)]));
+    }
+
+    #[test]
+    fn test_value_push_adverb() {
+        let src = "This story starts testly.\nThere is something with a value 1 line below.\nThe story was wirrrrrrinringly bad";
+        let index = LineIndex::new(src);
+        let nodes = vec![
+            Node::Story(
+                "testly".to_string(),
+                vec![Node::ValueRef(1).spanned(26..71)],
+            )
+            .spanned(0..25),
+            Node::Adverb("wirrrrrrinringly".to_string()).spanned(86..102),
+        ];
+
+        let mut evaluator = Evaluator::new(nodes, Some(index));
+        let res = evaluator.eval_script();
+        assert_eq!(res, Ok(vec![Value::Integer(7)]));
     }
 }
