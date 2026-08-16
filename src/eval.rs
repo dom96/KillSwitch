@@ -81,12 +81,12 @@ impl Evaluator {
                 (Node::Story(name, _children), span) => {
                     story = Some(i);
                     let ident = normalize_ident(name);
-                    self.check_ident_clash(ident, span)?;
+                    self.check_ident_clash(&ident, span)?;
                     self.idents.insert(ident.to_string(), i);
                 }
                 (Node::Chapter(name, _children), span) => {
                     let ident = normalize_ident(name);
-                    self.check_ident_clash(ident, span)?;
+                    self.check_ident_clash(&ident, span)?;
                     self.idents.insert(ident.to_string(), i);
                 }
                 (Node::IntLiteral(_), _span) => (),
@@ -150,7 +150,7 @@ impl Evaluator {
 
         // Find the ident. Check built-ins first.
         for built_in in BUILT_INS.iter() {
-            if is_anagram(ident, built_in) {
+            if is_anagram(&ident, built_in) {
                 match *built_in {
                     "humanely" => {
                         let mut input = String::new();
@@ -191,7 +191,7 @@ impl Evaluator {
         // TODO: Avoid the `clone` calls.
         for (ch_ident, index) in self.idents.clone() {
             if let (Node::Chapter(_, children), _) = self.nodes[index].clone() {
-                if !is_anagram(ident, &ch_ident) {
+                if !is_anagram(&ident, &ch_ident) {
                     continue;
                 }
 
@@ -368,8 +368,10 @@ fn collect_values(
     return line_to_literal;
 }
 
-fn normalize_ident(ident: &str) -> &str {
-    ident.trim_matches(|c: char| c.is_ascii_punctuation())
+fn normalize_ident(ident: &str) -> String {
+    ident
+        .trim_matches(|c: char| c.is_ascii_punctuation())
+        .to_ascii_lowercase()
 }
 
 #[cfg(test)]
