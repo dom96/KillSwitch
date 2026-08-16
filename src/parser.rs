@@ -1,18 +1,22 @@
 use chumsky::{
     input::{Stream, ValueInput},
     prelude::*,
+    span::SimpleSpan,
 };
 use logos::Logos;
 use std::fmt;
 
 use crate::lexer::Token;
 
+pub type Span = std::ops::Range<usize>;
+pub type Spanned<N> = (N, Span);
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Node {
-    Story(String, Vec<Self>),
-    Chapter(String, Vec<Self>),
+    Story(String, Vec<Spanned<Self>>),
+    Chapter(String, Vec<Spanned<Self>>),
     FuncCall(String, i32), // ident, number of words
-    IntLiteral(i64),       // TODO: Do I need to save line number?
+    IntLiteral(i64),
     FloatLiteral(f64),
     FuncReturn,
     ValueRef(usize), // count of "lines below"
@@ -25,7 +29,7 @@ impl fmt::Display for Node {
         match self {
             Node::Story(ident, nodes) => {
                 write!(f, "Story({}, ", ident)?;
-                for (i, node) in nodes.iter().enumerate() {
+                for (i, (node, _span)) in nodes.iter().enumerate() {
                     if i != 0 {
                         write!(f, ", ")?;
                     }
@@ -35,7 +39,7 @@ impl fmt::Display for Node {
             }
             Node::Chapter(ident, nodes) => {
                 write!(f, "Chapter({}, ", ident)?;
-                for (i, node) in nodes.iter().enumerate() {
+                for (i, (node, _span)) in nodes.iter().enumerate() {
                     if i != 0 {
                         write!(f, ", ")?;
                     }
@@ -54,9 +58,31 @@ impl fmt::Display for Node {
     }
 }
 
+// S can be SimpleSpan<usize> or Span
+//
+// Fun fact: I caused a Rust ICE here https://share.gemini.google/rVzs8vGPTE73
+impl Node {
+    pub fn spanned<S: Into<Span>>(self, span: S) -> (Self, Span) {
+        (self, span.into())
+    }
+}
+
+pub trait Unspanned<N> {
+    fn unspanned(&self) -> &N;
+}
+
+// Just a little helper to convert a Spanned node to
+// Node. We need the trait because we cannot define
+// functions on a tuple directly.
+impl Unspanned<Node> for Spanned<Node> {
+    fn unspanned(&self) -> &Node {
+        &self.0
+    }
+}
+
 // Based on example in https://github.com/zesterer/chumsky/blob/main/examples/logos.rs#L73.
 pub fn parser<'tok, 'src: 'tok, I>()
--> impl Parser<'tok, I, Vec<Node>, extra::Err<Rich<'tok, Token<'src>>>>
+-> impl Parser<'tok, I, Vec<Spanned<Node>>, extra::Err<Rich<'tok, Token<'src>>>>
 where
     I: ValueInput<'tok, Token = Token<'src>, Span = SimpleSpan>,
 {
@@ -71,15 +97,18 @@ where
             .then(adverb_to_ident)
             .then(word_or_adverb.repeated().collect::<Vec<_>>())
             .then_ignore(just(Token::NewLine).ignored().or(end()))
-            .map(|((_func, ident), words)| Node::FuncCall(ident.to_owned(), words.len() as i32));
+            .map_with(|((_func, ident), words), e| {
+                Node::FuncCall(ident.to_owned(), words.len() as i32).spanned(e.span())
+            });
 
+        // Ref: https://docs.rs/chumsky/latest/chumsky/macro.select.html
         let atom = select! {
-            Token::FloatLiteral(s) => Node::FloatLiteral(s.parse().unwrap()),
-            Token::IntegerLiteral(s) => Node::IntLiteral(s.parse().unwrap()),
-            Token::Word => Node::Word,
-            Token::Adverb(w) => Node::Adverb(w.to_owned()),
-            Token::Return => Node::FuncReturn,
-            Token::ValueRef(line_count) => Node::ValueRef(line_count),
+            Token::FloatLiteral(s) = e => Node::FloatLiteral(s.parse().unwrap()).spanned(e.span()),
+            Token::IntegerLiteral(s) = e => Node::IntLiteral(s.parse().unwrap()).spanned(e.span()),
+            Token::Word = e => Node::Word.spanned(e.span()),
+            Token::Adverb(w) = e => Node::Adverb(w.to_owned()).spanned(e.span()),
+            Token::Return = e => Node::FuncReturn.spanned(e.span()),
+            Token::ValueRef(line_count) = e => Node::ValueRef(line_count).spanned(e.span()),
         }
         .or(func_call)
         .padded_by(just(Token::NewLine).repeated());
@@ -88,13 +117,13 @@ where
             .then(value.clone().repeated().collect::<Vec<_>>())
             .delimited_by(just(Token::StoryStart), just(Token::StoryFinish))
             .then_ignore(adverb_to_ident)
-            .map(|(ident, stmts)| Node::Story(ident.to_owned(), stmts));
+            .map_with(|(ident, stmts), e| Node::Story(ident.to_owned(), stmts).spanned(e.span()));
 
         let chapter = adverb_to_ident
             .then(value.repeated().collect::<Vec<_>>())
             .delimited_by(just(Token::ChapterStart), just(Token::ChapterFinish))
             .then_ignore(adverb_to_ident)
-            .map(|(ident, stmts)| Node::Chapter(ident.to_owned(), stmts));
+            .map_with(|(ident, stmts), e| Node::Chapter(ident.to_owned(), stmts).spanned(e.span()));
 
         atom.or(story).or(chapter)
     });
@@ -102,7 +131,7 @@ where
     single_node.repeated().collect()
 }
 
-pub fn lex_to_parsed_result(code: &str) -> ParseResult<Vec<Node>, Rich<'_, Token<'_>>> {
+pub fn lex_to_parsed_result(code: &str) -> ParseResult<Vec<Spanned<Node>>, Rich<'_, Token<'_>>> {
     let lex = Token::lexer(code).spanned().map(|(tok, span)| match tok {
         Ok(tok) => (tok, span.into()),
         Err(()) => (Token::Error, span.into()),
@@ -127,9 +156,9 @@ mod tests {
 
         let expected = Node::Story(
             "frostily.".to_string(),
-            vec![Node::FuncCall("frigidly,".to_string(), 1)],
+            vec![Node::FuncCall("frigidly,".to_string(), 1).spanned(28..72)],
         );
-        assert_eq!(result[0], expected);
+        assert_eq!(result[0].unspanned(), &expected);
     }
 
     #[test]
@@ -140,8 +169,11 @@ mod tests {
 
         let result = parsed_result.into_result().unwrap();
 
-        let expected = Node::Chapter("frigidly.".to_string(), vec![Node::ValueRef(42)]);
-        assert_eq!(result[0], expected);
+        let expected = Node::Chapter(
+            "frigidly.".to_string(),
+            vec![Node::ValueRef(42).spanned(29..49)],
+        );
+        assert_eq!(result[0].unspanned(), &expected);
     }
 
     #[test]
@@ -153,7 +185,7 @@ mod tests {
         let result = parsed_result.into_result().unwrap();
 
         let expected = Node::FuncCall("sparingly".to_string(), 9);
-        assert_eq!(result[0], expected);
+        assert_eq!(result[0].unspanned(), &expected);
     }
 
     #[test]
@@ -163,7 +195,7 @@ mod tests {
         let result = parsed_result.into_result().unwrap();
 
         let expected = Node::FuncCall("humanely".to_string(), 0);
-        assert_eq!(result[0], expected);
+        assert_eq!(result[0].unspanned(), &expected);
     }
 
     #[test]
@@ -175,7 +207,7 @@ mod tests {
         let result = parsed_result.into_result().unwrap();
 
         let expected = Node::FuncCall("additionally".to_string(), 10);
-        assert_eq!(result[0], expected);
+        assert_eq!(result[0].unspanned(), &expected);
     }
 
     #[test]
@@ -212,7 +244,10 @@ mod tests {
             Node::FuncReturn,
             Node::Word,
         ];
-        assert_eq!(result, expected);
+        assert_eq!(
+            result.into_iter().map(|(n, _s)| n).collect::<Vec<_>>(),
+            expected
+        );
     }
 
     #[test]
@@ -222,11 +257,11 @@ mod tests {
         let result = parsed_result.into_result().unwrap();
 
         let expected = [
-            Node::Word,
-            Node::Word,
-            Node::Word,
-            Node::ValueRef(1),
-            Node::Word,
+            Node::Word.spanned(0..4),
+            Node::Word.spanned(5..11),
+            Node::Word.spanned(12..13),
+            Node::ValueRef(1).spanned(14..32),
+            Node::Word.spanned(32..33),
         ];
         assert_eq!(result, expected);
     }
