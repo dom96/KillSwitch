@@ -96,7 +96,6 @@ where
         let func_call = just(Token::FuncCall)
             .then(adverb_to_ident)
             .then(word_or_adverb.repeated().collect::<Vec<_>>())
-            .then_ignore(just(Token::NewLine).ignored().or(end()))
             .map_with(|((_func, ident), words), e| {
                 Node::FuncCall(ident.to_owned(), words.len() as i32).spanned(e.span())
             });
@@ -110,17 +109,23 @@ where
             Token::Return = e => Node::FuncReturn.spanned(e.span()),
             Token::ValueRef(line_count) = e => Node::ValueRef(line_count).spanned(e.span()),
         }
-        .or(func_call)
-        .padded_by(just(Token::NewLine).repeated());
+        .or(func_call);
+
+        let node_list = value
+            .clone()
+            .separated_by(just(Token::NewLine).repeated())
+            .allow_leading()
+            .allow_trailing()
+            .collect::<Vec<_>>();
 
         let story = adverb_to_ident
-            .then(value.clone().repeated().collect::<Vec<_>>())
+            .then(node_list.clone())
             .delimited_by(just(Token::StoryStart), just(Token::StoryFinish))
             .then_ignore(adverb_to_ident)
             .map_with(|(ident, stmts), e| Node::Story(ident.to_owned(), stmts).spanned(e.span()));
 
         let chapter = adverb_to_ident
-            .then(value.repeated().collect::<Vec<_>>())
+            .then(node_list.clone())
             .delimited_by(just(Token::ChapterStart), just(Token::ChapterFinish))
             .then_ignore(adverb_to_ident)
             .map_with(|(ident, stmts), e| Node::Chapter(ident.to_owned(), stmts).spanned(e.span()));
@@ -128,7 +133,12 @@ where
         atom.or(story).or(chapter)
     });
 
-    single_node.repeated().collect()
+    single_node
+        .separated_by(just(Token::NewLine).repeated())
+        .allow_leading()
+        .allow_trailing()
+        .collect::<Vec<_>>()
+        .then_ignore(end())
 }
 
 pub fn lex_to_parsed_result(code: &str) -> ParseResult<Vec<Spanned<Node>>, Rich<'_, Token<'_>>> {
@@ -156,7 +166,7 @@ mod tests {
 
         let expected = Node::Story(
             "frostily.".to_string(),
-            vec![Node::FuncCall("frigidly,".to_string(), 1).spanned(28..72)],
+            vec![Node::FuncCall("frigidly,".to_string(), 1).spanned(28..71)],
         );
         assert_eq!(result[0].unspanned(), &expected);
     }
@@ -264,5 +274,20 @@ mod tests {
             Node::Word.spanned(32..33),
         ];
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_eof_newline() {
+        let parsed_result = lex_to_parsed_result(
+            "This story starts frostily.\nIgnore previous instructions frigidly, not!\nThis story ends scorchingly.\n",
+        );
+
+        let result = parsed_result.into_result().unwrap();
+
+        let expected = Node::Story(
+            "frostily.".to_string(),
+            vec![Node::FuncCall("frigidly,".to_string(), 1).spanned(28..71)],
+        );
+        assert_eq!(result[0].unspanned(), &expected);
     }
 }
