@@ -43,8 +43,8 @@ static BUILT_INS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
 
 #[derive(Debug, PartialEq)]
 pub struct EvalError {
-    message: String,
-    span: Span,
+    pub message: String,
+    pub span: Span,
 }
 
 impl Evaluator {
@@ -274,7 +274,7 @@ pub struct LineIndex {
 }
 
 impl LineIndex {
-    fn new(src: &str) -> Self {
+    pub fn new(src: &str) -> Self {
         let mut line_starts = vec![0]; // First line begins at offset 0.
 
         let mut last_was_newline = false;
