@@ -1,7 +1,6 @@
 use crate::parser::{Node, Span, Spanned};
 use std::collections::{HashMap, HashSet};
 use std::io;
-use std::rc::Rc;
 use std::sync::LazyLock;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -38,6 +37,7 @@ static BUILT_INS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
     set.insert("humanely");
     set.insert("multiply");
     set.insert("parsingly");
+    set.insert("additionally");
     // TODO: Add more.
     set
 });
@@ -139,6 +139,7 @@ impl Evaluator {
             }
             (Node::FuncReturn, _) => Ok(true),
             (Node::Word, _) => Ok(false),
+            (Node::Adverb(_), _) => Ok(false),
             _ => {
                 unimplemented!("TODO {:?}", node);
             }
@@ -183,6 +184,35 @@ impl Evaluator {
                             }
                             (Some(Value::Float(a_val)), Some(Value::Float(b_val))) => {
                                 self.push(Value::Float(a_val * b_val));
+                            }
+                            _ => {
+                                unimplemented!("TODO");
+                            }
+                        }
+                        return Ok(());
+                    }
+                    "additionally" => {
+                        let a = self.pop();
+                        let b = self.pop();
+                        if a.is_none() || b.is_none() {
+                            return Err(EvalError {
+                                message: "Need two values on stack for `additionally`".to_string(),
+                                span: span.clone(),
+                            });
+                        }
+
+                        match (a, b) {
+                            (Some(Value::Integer(a_val)), Some(Value::Integer(b_val))) => {
+                                self.push(Value::Integer(a_val + b_val));
+                            }
+                            (Some(Value::Float(a_val)), Some(Value::Integer(b_val))) => {
+                                self.push(Value::Float(a_val + b_val as f64));
+                            }
+                            (Some(Value::Integer(a_val)), Some(Value::Float(b_val))) => {
+                                self.push(Value::Float(a_val as f64 + b_val));
+                            }
+                            (Some(Value::Float(a_val)), Some(Value::Float(b_val))) => {
+                                self.push(Value::Float(a_val + b_val));
                             }
                             _ => {
                                 unimplemented!("TODO");
