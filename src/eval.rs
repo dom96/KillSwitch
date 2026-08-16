@@ -23,6 +23,14 @@ pub struct Evaluator {
     // rather than a reference to the Node.
     // TODO: Right now this only allows us to refer to a top-level node.
     idents: HashMap<String, usize>,
+
+    // Helps look up line numbers for Spans. Optional to make it easier to write
+    // tests as not all nodes care about this.
+    line_index: Option<LineIndex>,
+
+    // A mapping from line number to a literal (int/float/str).
+    // Used for ValueRef evaluation.
+    line_to_literal: HashMap<usize, Value>,
 }
 
 static BUILT_INS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
@@ -40,11 +48,13 @@ pub struct EvalError {
 }
 
 impl Evaluator {
-    pub fn new(nodes: Vec<Spanned<Node>>) -> Self {
+    pub fn new(nodes: Vec<Spanned<Node>>, line_index: Option<LineIndex>) -> Self {
         Self {
+            line_to_literal: collect_values(&nodes, &line_index),
             stack: Vec::new(),
             nodes: nodes,
             idents: HashMap::new(),
+            line_index: line_index,
         }
     }
 
@@ -109,7 +119,7 @@ impl Evaluator {
     fn eval_node(&mut self, node: &Spanned<Node>) -> Result<(), EvalError> {
         match node {
             (Node::FuncCall(ident, _word_count), span) => self.eval_func_call(ident, span),
-            (Node::ValueRef(lines_below), span) => self.eval_value_ref(*lines_below),
+            (Node::ValueRef(lines_below), span) => self.eval_value_ref(*lines_below, span),
             _ => {
                 unimplemented!("TODO");
             }
@@ -204,9 +214,58 @@ impl Evaluator {
         return Ok(());
     }
 
-    fn eval_value_ref(&self, lines_below: usize) -> Result<(), EvalError> {
-        // TODO
-        return Ok(());
+    fn eval_value_ref(&mut self, lines_below: usize, span: &Span) -> Result<(), EvalError> {
+        let our_line = self
+            .line_index
+            .as_ref()
+            .expect("Evaluator needs LineIndex")
+            .get_line(span.start);
+        let wanted_line = our_line + lines_below;
+        let wanted_value = self.line_to_literal.get(&wanted_line);
+
+        match wanted_value {
+            Some(val) => {
+                // Push onto the stack.
+                self.stack.push(val.clone());
+                Ok(())
+            }
+            None => Err(EvalError {
+                message: format!("No value {} lines below", lines_below),
+                span: span.clone(),
+            }),
+        }
+    }
+}
+
+// A LineIndex which ignores empty lines. Used for ValueRef evaluation.
+pub struct LineIndex {
+    line_starts: Vec<usize>,
+}
+
+impl LineIndex {
+    fn new(src: &str) -> Self {
+        let mut line_starts = vec![0]; // First line begins at offset 0.
+
+        let mut last_was_newline = false;
+        for (i, c) in src.bytes().enumerate() {
+            if c == b'\n' {
+                if !last_was_newline {
+                    line_starts.push(i + 1);
+                    last_was_newline = true;
+                }
+            } else {
+                last_was_newline = false;
+            }
+        }
+
+        Self { line_starts }
+    }
+
+    fn get_line(&self, byte_offset: usize) -> usize {
+        match self.line_starts.binary_search(&byte_offset) {
+            Ok(line) => line + 1,
+            Err(line) => line,
+        }
     }
 }
 
@@ -227,6 +286,44 @@ fn is_anagram(a: &str, b: &str) -> bool {
     return counts_a == counts_b;
 }
 
+fn collect_values(
+    nodes: &Vec<Spanned<Node>>,
+    line_index: &Option<LineIndex>,
+) -> HashMap<usize, Value> {
+    let mut line_to_literal = HashMap::new();
+    for node in nodes {
+        match node {
+            (Node::FloatLiteral(f), span) => {
+                let line = line_index
+                    .as_ref()
+                    .expect("Evaluator needs LineIndex")
+                    .get_line(span.start);
+                line_to_literal.insert(line, Value::Float(*f));
+            }
+            (Node::IntLiteral(f), span) => {
+                let line = line_index
+                    .as_ref()
+                    .expect("Evaluator needs LineIndex")
+                    .get_line(span.start);
+                line_to_literal.insert(line, Value::Integer(*f));
+            }
+            (Node::Story(_, children), _) => {
+                line_to_literal.extend(collect_values(children, line_index));
+            }
+            (Node::Chapter(_, children), _) => {
+                line_to_literal.extend(collect_values(children, line_index));
+            }
+            (Node::FuncCall(_, _), _) => (),
+            (Node::FuncReturn, _) => (),
+            (Node::ValueRef(_), _) => (),
+            (Node::Adverb(_), _) => (),
+            (Node::Word, _) => (),
+        }
+    }
+
+    return line_to_literal;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -241,7 +338,7 @@ mod tests {
             .spanned(0..0),
         ];
 
-        let mut evaluator = Evaluator::new(nodes);
+        let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
         evaluator.push(Value::Integer(5));
         evaluator.push(Value::Integer(5));
         let res = evaluator.eval_script();
@@ -263,7 +360,7 @@ mod tests {
             .spanned(0..0),
         ];
 
-        let mut evaluator = Evaluator::new(nodes);
+        let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
         evaluator.push(Value::Integer(5));
         evaluator.push(Value::Integer(5));
         let res = evaluator.eval_script();
@@ -283,7 +380,7 @@ mod tests {
             Node::Chapter("testily".to_string(), vec![]).spanned(0..0),
         ];
 
-        let mut evaluator = Evaluator::new(nodes);
+        let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
         evaluator.push(Value::Integer(5));
         evaluator.push(Value::Integer(10));
         let res = evaluator.eval_script();
@@ -292,12 +389,18 @@ mod tests {
 
     #[test]
     fn test_value_push() {
+        let src = "This story starts testly.\nThere is something with a value 2 lines below.\nLine one\nMy secret value is 42";
+        let index = LineIndex::new(src);
         let nodes = vec![
-            Node::Story("testly".to_string(), vec![Node::ValueRef(2).spanned(0..0)]).spanned(0..0),
-            Node::IntLiteral(42).spanned(0..0),
+            Node::Story(
+                "testly".to_string(),
+                vec![Node::ValueRef(2).spanned(26..72)],
+            )
+            .spanned(0..25),
+            Node::IntLiteral(42).spanned(101..103),
         ];
 
-        let mut evaluator = Evaluator::new(nodes);
+        let mut evaluator = Evaluator::new(nodes, Some(index));
         let res = evaluator.eval_script();
         assert_eq!(res, Ok(vec![Value::Integer(42)]));
     }
