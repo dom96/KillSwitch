@@ -102,7 +102,10 @@ impl Evaluator {
                 // TODO: Remove clone.
                 (Node::Story(_, children), _) => {
                     for child in children {
-                        self.eval_node(&child)?
+                        let was_return = self.eval_node(&child)?;
+                        if was_return {
+                            break;
+                        }
                     }
                 }
                 _ => panic!("We should never not get a Story here."),
@@ -118,10 +121,19 @@ impl Evaluator {
         return Ok(self.stack.clone());
     }
 
-    fn eval_node(&mut self, node: &Spanned<Node>) -> Result<(), EvalError> {
+    // Returns `true` when `FuncReturn` was evaluated. Caller should use this as a signal
+    // appropriately.
+    fn eval_node(&mut self, node: &Spanned<Node>) -> Result<bool, EvalError> {
         match node {
-            (Node::FuncCall(ident, _word_count), span) => self.eval_func_call(ident, span),
-            (Node::ValueRef(lines_below), span) => self.eval_value_ref(*lines_below, span),
+            (Node::FuncCall(ident, _word_count), span) => {
+                self.eval_func_call(ident, span)?;
+                Ok(false)
+            }
+            (Node::ValueRef(lines_below), span) => {
+                self.eval_value_ref(*lines_below, span)?;
+                Ok(false)
+            }
+            (Node::FuncReturn, _) => Ok(true),
             _ => {
                 unimplemented!("TODO");
             }
@@ -178,7 +190,10 @@ impl Evaluator {
 
                 // Loop through nodes, back to front.
                 for child in children.iter().rev() {
-                    self.eval_node(&child)?;
+                    let was_return = self.eval_node(&child)?;
+                    if was_return {
+                        break;
+                    }
                 }
 
                 // Keep only the top value on the stack.
@@ -462,5 +477,23 @@ mod tests {
         let mut evaluator = Evaluator::new(nodes, Some(index));
         let res = evaluator.eval_script();
         assert_eq!(res, Ok(vec![Value::Integer(7)]));
+    }
+
+    #[test]
+    fn test_func_return() {
+        let nodes = vec![
+            Node::Story(
+                "testly".to_string(),
+                vec![Node::FuncCall("testily".to_string(), 0).spanned(0..0)],
+            )
+            .spanned(0..0),
+            Node::Chapter("testily".to_string(), vec![Node::FuncReturn.spanned(0..0)])
+                .spanned(0..0),
+        ];
+
+        let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
+        evaluator.push(Value::Integer(1));
+        let res = evaluator.eval_script();
+        assert_eq!(res, Ok(vec![Value::Integer(1)]));
     }
 }
