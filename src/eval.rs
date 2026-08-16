@@ -80,18 +80,21 @@ impl Evaluator {
             match n {
                 (Node::Story(name, _children), span) => {
                     story = Some(i);
-                    self.check_ident_clash(name, span)?;
-                    self.idents.insert(name.clone(), i);
+                    let ident = normalize_ident(name);
+                    self.check_ident_clash(ident, span)?;
+                    self.idents.insert(ident.to_string(), i);
                 }
                 (Node::Chapter(name, _children), span) => {
-                    self.check_ident_clash(name, span)?;
-                    self.idents.insert(name.clone(), i);
+                    let ident = normalize_ident(name);
+                    self.check_ident_clash(ident, span)?;
+                    self.idents.insert(ident.to_string(), i);
                 }
                 (Node::IntLiteral(_), _span) => (),
                 (Node::FloatLiteral(_), _span) => (),
                 (Node::Adverb(_), _span) => (),
+                (Node::Word, _span) => (),
                 _ => {
-                    unimplemented!("TODO");
+                    unimplemented!("TODO {:?}", n);
                 }
             }
         }
@@ -134,13 +137,17 @@ impl Evaluator {
                 Ok(false)
             }
             (Node::FuncReturn, _) => Ok(true),
+            (Node::Word, _) => Ok(false),
             _ => {
-                unimplemented!("TODO");
+                unimplemented!("TODO {:?}", node);
             }
         }
     }
 
-    fn eval_func_call(&mut self, ident: &String, span: &Span) -> Result<(), EvalError> {
+    fn eval_func_call(&mut self, raw_ident: &String, span: &Span) -> Result<(), EvalError> {
+        // Process the ident to remove punctuation.
+        let ident = normalize_ident(raw_ident);
+
         // Find the ident. Check built-ins first.
         for built_in in BUILT_INS.iter() {
             if is_anagram(ident, built_in) {
@@ -182,8 +189,8 @@ impl Evaluator {
         // If none of the built-ins match, then find a chapter with the name.
         //
         // TODO: Avoid the `clone` calls.
-        for (_, index) in self.idents.clone() {
-            if let (Node::Chapter(ch_ident, children), _) = self.nodes[index].clone() {
+        for (ch_ident, index) in self.idents.clone() {
+            if let (Node::Chapter(_, children), _) = self.nodes[index].clone() {
                 if !is_anagram(ident, &ch_ident) {
                     continue;
                 }
@@ -359,6 +366,10 @@ fn collect_values(
     }
 
     return line_to_literal;
+}
+
+fn normalize_ident(ident: &str) -> &str {
+    ident.trim_matches(|c: char| c.is_ascii_punctuation())
 }
 
 #[cfg(test)]
