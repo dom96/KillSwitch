@@ -72,11 +72,12 @@ fn main() {
                 Err(parse_errors) => {
                     for err in parse_errors {
                         let span = err.span().into_range();
+                        let filename = args.filename.to_str().unwrap();
 
-                        Report::build(ReportKind::Error, span.clone())
+                        Report::build(ReportKind::Error, (filename, span.clone()))
                             .with_message(err.to_string())
                             .with_label(
-                                Label::new(span)
+                                Label::new((filename, span.clone()))
                                     .with_message(format!(
                                         "Unexpected token (expected one of: {:?})",
                                         err.expected().collect::<Vec<_>>()
@@ -84,7 +85,7 @@ fn main() {
                                     .with_color(Color::Red),
                             )
                             .finish()
-                            .print(Source::from(&contents))
+                            .print((filename, Source::from(contents.as_str())))
                             .unwrap();
                     }
                 }
