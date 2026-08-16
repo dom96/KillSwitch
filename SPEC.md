@@ -326,9 +326,7 @@ For example, we could have a global variable which determines the number of word
 
 #### Strings
 
-- `parsingly` - pops a number from the stack which determines what to parse the next item on the stack as, pushes the parsed value
-  - 0 - parse as int
-  - 1 - parse as float
+- `parsingly` - pops a string representing a number from the stack, parses it, pushes the parsed value
 
 #### IO
 

@@ -37,6 +37,7 @@ static BUILT_INS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
     let mut set = HashSet::new();
     set.insert("humanely");
     set.insert("multiply");
+    set.insert("parsingly");
     // TODO: Add more.
     set
 });
@@ -157,7 +158,7 @@ impl Evaluator {
                         io::stdin()
                             .read_line(&mut input)
                             .expect("Failed to read line");
-                        self.push(Value::Text(input));
+                        self.push(Value::Text(input.trim_end().to_string()));
                         return Ok(());
                     }
                     "multiply" => {
@@ -176,6 +177,39 @@ impl Evaluator {
                             }
                             _ => {
                                 unimplemented!("TODO");
+                            }
+                        }
+                        return Ok(());
+                    }
+                    "parsingly" => {
+                        let number_value = self.pop();
+
+                        match number_value {
+                            Some(Value::Text(str)) => {
+                                let value = if let Ok(int_val) = str.parse::<i64>() {
+                                    Value::Integer(int_val)
+                                } else if let Ok(float_val) = str.parse::<f64>() {
+                                    Value::Float(float_val)
+                                } else {
+                                    return Err(EvalError {
+                                        message: format!("Couldn't parse '{}'", str),
+                                        span: span.clone(),
+                                    });
+                                };
+
+                                self.push(value);
+                            }
+                            Some(Value::Integer(_)) => {
+                                self.push(number_value.unwrap());
+                            }
+                            Some(Value::Float(_)) => {
+                                self.push(number_value.unwrap());
+                            }
+                            None => {
+                                return Err(EvalError {
+                                    message: "Need value on stack for `parsingly`".to_string(),
+                                    span: span.clone(),
+                                });
                             }
                         }
                         return Ok(());
