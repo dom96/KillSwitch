@@ -79,10 +79,16 @@ fn main() {
                             // TODO: exit with top of stack if int?
                         }
                         Err(eval_error) => {
-                            Report::build(ReportKind::Error, eval_error.span)
+                            let filename = args.filename.to_str().unwrap();
+                            Report::build(ReportKind::Error, (filename, eval_error.span.clone()))
                                 .with_message(eval_error.message.to_string())
+                                .with_label(
+                                    Label::new((filename, eval_error.span))
+                                        .with_message(format!("Last execution"))
+                                        .with_color(Color::Red),
+                                )
                                 .finish()
-                                .print(Source::from(&contents))
+                                .print((filename, Source::from(contents.as_str())))
                                 .unwrap();
                         }
                     }

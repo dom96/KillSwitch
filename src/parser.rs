@@ -15,7 +15,7 @@ pub type Spanned<N> = (N, Span);
 pub enum Node {
     Story(String, Vec<Spanned<Self>>),
     Chapter(String, Vec<Spanned<Self>>),
-    FuncCall(String, i32), // ident, number of words
+    FuncCall(String, usize), // ident, number of words
     IntLiteral(i64),
     FloatLiteral(f64),
     FuncReturn,
@@ -97,7 +97,7 @@ where
             .then(adverb_to_ident)
             .then(word_or_adverb.repeated().collect::<Vec<_>>())
             .map_with(|((_func, ident), words), e| {
-                Node::FuncCall(ident.to_owned(), words.len() as i32).spanned(e.span())
+                Node::FuncCall(ident.to_owned(), words.len()).spanned(e.span())
             });
 
         // Ref: https://docs.rs/chumsky/latest/chumsky/macro.select.html

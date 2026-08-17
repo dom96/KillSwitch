@@ -1,6 +1,7 @@
 use crate::parser::{Node, Span, Spanned};
 use std::collections::{HashMap, HashSet};
 use std::io;
+use std::str::Bytes;
 use std::sync::LazyLock;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -130,8 +131,8 @@ impl Evaluator {
     // appropriately.
     fn eval_node(&mut self, node: &Spanned<Node>) -> Result<bool, EvalError> {
         match node {
-            (Node::FuncCall(ident, _word_count), span) => {
-                self.eval_func_call(ident, span)?;
+            (Node::FuncCall(ident, word_count), span) => {
+                self.eval_func_call(ident, *word_count, span)?;
                 Ok(false)
             }
             (Node::ValueRef(lines_below), span) => {
@@ -147,9 +148,27 @@ impl Evaluator {
         }
     }
 
-    fn eval_func_call(&mut self, raw_ident: &String, span: &Span) -> Result<(), EvalError> {
+    fn eval_func_call(
+        &mut self,
+        raw_ident: &String,
+        word_count: usize,
+        span: &Span,
+    ) -> Result<(), EvalError> {
         // Process the ident to remove punctuation.
         let ident = normalize_ident(raw_ident);
+
+        // Verify that this is a valid function call.
+        let is_correct_words_long = ident.len() == word_count as usize;
+
+        let focus_var_value = self.get_focus_var();
+        let focus_letter_count = count_letters_in(focus_var_value, &ident);
+        let is_correct_focus_count = word_count == focus_letter_count;
+        if !is_correct_words_long && !is_correct_focus_count {
+            return Err(EvalError {
+                message: "Invalid func call, incorrect number of words given".to_string(),
+                span: span.clone(),
+            });
+        }
 
         // Find the ident. Check built-ins first.
         for built_in in BUILT_INS.iter() {
@@ -344,8 +363,8 @@ impl Evaluator {
                     Node::Adverb(a) => {
                         // We look up the current focus variable, whatever char it is we count in the
                         // adverb. Then push that as the value.
-                        let focus_var_value = b'r'; // TODO: Implement variables.
-                        let value = a.bytes().filter(|x| *x == focus_var_value).count() as i64;
+                        let focus_var_value = self.get_focus_var();
+                        let value = count_letters_in(focus_var_value, a) as i64;
                         Value::Integer(value)
                     }
                     _ => {
@@ -360,6 +379,10 @@ impl Evaluator {
                 span: span.clone(),
             }),
         }
+    }
+
+    fn get_focus_var(&self) -> u8 {
+        b'r' // TODO: Implement variables.
     }
 }
 
@@ -410,6 +433,10 @@ fn is_anagram(a: &str, b: &str) -> bool {
     }
 
     return counts_a == counts_b;
+}
+
+fn count_letters_in(letter: u8, word: &str) -> usize {
+    word.bytes().filter(|x| *x == letter).count()
 }
 
 fn collect_values(
@@ -596,5 +623,33 @@ mod tests {
         evaluator.push(Value::Integer(1));
         let res = evaluator.eval_script();
         assert_eq!(res, Ok(vec![Value::Integer(1)]));
+    }
+
+    #[test]
+    fn test_func_call_word_count() {
+        let nodes = vec![
+            Node::Story(
+                "testly".to_string(),
+                vec![Node::FuncCall("frigidly".to_string(), 15).spanned(0..0)],
+            )
+            .spanned(0..0),
+            Node::Chapter(
+                "frigidly".to_string(),
+                vec![Node::FuncCall("miltypul".to_string(), 0).spanned(0..0)],
+            )
+            .spanned(0..0),
+        ];
+
+        let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
+        evaluator.push(Value::Integer(1));
+        evaluator.push(Value::Integer(5));
+        let res = evaluator.eval_script();
+        assert_eq!(
+            res,
+            Err(EvalError {
+                message: "Invalid func call, incorrect number of words given".to_string(),
+                span: 0..0
+            })
+        );
     }
 }
