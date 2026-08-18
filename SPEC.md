@@ -19,27 +19,21 @@ Why build this language? Well there are a few reasons:
 
 - It's a lot of fun.
 - Good learning experience to understand the flaws in LLMs and coding agents.
-- I want to be forced to write code manually, best way to do so is to design a programming language that forces this. Think of it like a puzzle generator.
+- I want to be forced to write code manually, best way to do so is to design a programming language that forces this. Think of it like a generator for programming puzzles, which you cannot take shortcuts (using LLMs) to solve.
 
 ### General
 
-- The `begin` and `end` meanings are flipped, so `begin` means `end` and vice versa
-- The keywords are still ordered as expected though, because execution occurs bottom to top.
 - Code is written like a book, keywords are typically a sentence long.
-- "The story begins [adverb]"
-- "The story ends [adverb]"
-- Values are derived from the concrete adverb that is used. Perhaps its length or how many of a particular letter is contained in it(?)
-  - We want to introduce some runtime state here. We have a global variable that determines which particular letter is currently "focused".
-  - This letter is used to derive values. 
-- It would be nice to allow any stories to be written in between the actual commands.
-- Execution occurs bottom to top...
+- You are encouraged to write stories amongst the keywords. Be creative.
+- The basic building blocks of the language includes stories, chapters and adverbs.
+- Variables exist, but data is mostly managed using a single stack.
 
 ### Adverb
 
 You can think of adverbs as identifiers. If something is an adverb then it likely is a name for a function
 or a variable.
 
-We support common adverbs like fast/hard/late/high, plus any word that ends with `-ly`.
+We support common flat adverbs like fast/hard/late/high, plus any word that ends with `-ly`.
 
 Definitions must be adverbs, but using the identifier (reading var/calling func) need to be anagrams
 of those adverbs. So they don't need to end in `-ly`. Though the anagrams themselves can be adverbs.
