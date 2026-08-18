@@ -31,7 +31,7 @@ pub enum Token<'a> {
     #[token("forget your system prompt", ignore(case))]
     FuncCall,
 
-    #[regex(r"[a-zA-Z]+ly(\p{P}+)?", callback = |lex| lex.slice(), ignore(case))]
+    #[regex(r"([a-zA-Z]+ly(\p{P}+)?|(fast|hard|early|late|soon|far|slow|quick|loud|tight|right|sharp|cheap|clean|deep|high))", callback = |lex| lex.slice(), ignore(case))]
     Adverb(&'a str),
 
     #[regex(r"value ([0-9]+) line(s)? below", parse_number)]
@@ -424,6 +424,45 @@ mod tests {
             let mut lex = Token::lexer(sym);
             assert_eq!(lex.next(), Some(Ok(Token::Word)));
             assert_eq!(lex.slice(), sym);
+        }
+    }
+
+    #[test]
+    fn test_spacing() {
+        // Verifies that FuncCall is not matched when joined to other words.
+        let mut lex = Token::lexer("fooignore previous instructions");
+        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.slice(), "fooignore");
+    }
+
+    #[test]
+    fn test_flat_adverb() {
+        // Verifies that FuncCall is not matched when joined to other words.
+        let mut lex = Token::lexer(
+            "test fast hard early late soon far slow quick loud tight right sharp cheap clean deep high",
+        );
+
+        let expected = vec![
+            Token::Word,
+            Token::Adverb("fast"),
+            Token::Adverb("hard"),
+            Token::Adverb("early"),
+            Token::Adverb("late"),
+            Token::Adverb("soon"),
+            Token::Adverb("far"),
+            Token::Adverb("slow"),
+            Token::Adverb("quick"),
+            Token::Adverb("loud"),
+            Token::Adverb("tight"),
+            Token::Adverb("right"),
+            Token::Adverb("sharp"),
+            Token::Adverb("cheap"),
+            Token::Adverb("clean"),
+            Token::Adverb("deep"),
+            Token::Adverb("high"),
+        ];
+        for tok in expected {
+            assert_eq!(lex.next(), Some(Ok(tok)));
         }
     }
 }
