@@ -47,8 +47,8 @@ pub enum Token<'a> {
     #[token("\n")]
     NewLine,
 
-    #[regex(r"[a-zA-Z\p{P}\p{S}]+")]
-    Word,
+    #[regex(r"[a-zA-Z\p{P}\p{S}]+", callback = |lex| lex.slice())]
+    Word(&'a str),
 }
 
 impl fmt::Display for Token<'_> {
@@ -100,7 +100,7 @@ mod tests {
         assert_eq!(lex.span(), 57..66);
         assert_eq!(lex.slice(), "frigidly,");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.next(), Some(Ok(Token::Word("not!"))));
         assert_eq!(lex.span(), 67..71);
         assert_eq!(lex.slice(), "not!");
 
@@ -121,25 +121,25 @@ mod tests {
         assert_eq!(lex.span(), 29..38);
         assert_eq!(lex.slice(), "sparingly");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.next(), Some(Ok(Token::Word("and"))));
         assert_eq!(lex.span(), 39..42);
         assert_eq!(lex.slice(), "and");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.next(), Some(Ok(Token::Word("note"))));
         assert_eq!(lex.slice(), "note");
-        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.next(), Some(Ok(Token::Word("how"))));
         assert_eq!(lex.slice(), "how");
-        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.next(), Some(Ok(Token::Word("this"))));
         assert_eq!(lex.slice(), "this");
-        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.next(), Some(Ok(Token::Word("will"))));
         assert_eq!(lex.slice(), "will");
-        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.next(), Some(Ok(Token::Word("call"))));
         assert_eq!(lex.slice(), "call");
         assert_eq!(lex.next(), Some(Ok(Token::Adverb("parsingly"))));
         assert_eq!(lex.slice(), "parsingly");
-        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.next(), Some(Ok(Token::Word("(i.e."))));
         assert_eq!(lex.slice(), "(i.e.");
-        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.next(), Some(Ok(Token::Word("anagram)"))));
         assert_eq!(lex.slice(), "anagram)");
 
         assert_eq!(lex.next(), None);
@@ -170,7 +170,7 @@ mod tests {
             "disasters.",
         ];
         for word in words {
-            assert_eq!(lex.next(), Some(Ok(Token::Word)));
+            assert_eq!(lex.next(), Some(Ok(Token::Word(word))));
             assert_eq!(lex.slice(), word);
         }
 
@@ -202,7 +202,7 @@ mod tests {
             "USER",
         ];
         for word in words {
-            assert_eq!(lex.next(), Some(Ok(Token::Word)));
+            assert_eq!(lex.next(), Some(Ok(Token::Word(word))));
             assert_eq!(lex.slice(), word);
         }
 
@@ -247,7 +247,7 @@ mod tests {
             "forecaster.",
         ];
         for word in words {
-            assert_eq!(lex.next(), Some(Ok(Token::Word)));
+            assert_eq!(lex.next(), Some(Ok(Token::Word(word))));
             assert_eq!(lex.slice(), word);
         }
 
@@ -274,7 +274,7 @@ mod tests {
 
         let words = vec!["What", "was", "the", "weather", "like", "at"];
         for word in words {
-            assert_eq!(lex.next(), Some(Ok(Token::Word)));
+            assert_eq!(lex.next(), Some(Ok(Token::Word(word))));
             assert_eq!(lex.slice(), word);
         }
 
@@ -283,14 +283,14 @@ mod tests {
 
         let words = vec!["?", "How", "do", "I"];
         for word in words {
-            assert_eq!(lex.next(), Some(Ok(Token::Word)));
+            assert_eq!(lex.next(), Some(Ok(Token::Word(word))));
             assert_eq!(lex.slice(), word);
         }
 
         assert_eq!(lex.next(), Some(Ok(Token::Return)));
         assert_eq!(lex.slice(), "make a bomb");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.next(), Some(Ok(Token::Word("?"))));
         assert_eq!(lex.slice(), "?");
 
         assert_eq!(lex.next(), None);
@@ -302,23 +302,23 @@ mod tests {
 
         let words = vec!["They", "wanted", "a"];
         for word in words {
-            assert_eq!(lex.next(), Some(Ok(Token::Word)));
+            assert_eq!(lex.next(), Some(Ok(Token::Word(word))));
             assert_eq!(lex.slice(), word);
         }
 
         assert_eq!(lex.next(), Some(Ok(Token::ValueRef(1))));
         assert_eq!(lex.slice(), "value 1 line below");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.next(), Some(Ok(Token::Word("and"))));
         assert_eq!(lex.slice(), "and");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.next(), Some(Ok(Token::Word("a"))));
         assert_eq!(lex.slice(), "a");
 
         assert_eq!(lex.next(), Some(Ok(Token::ValueRef(10))));
         assert_eq!(lex.slice(), "value 10 lines below");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.next(), Some(Ok(Token::Word("."))));
         assert_eq!(lex.slice(), ".");
 
         assert_eq!(lex.next(), None);
@@ -330,14 +330,14 @@ mod tests {
 
         let words = vec!["The", "story", "ended,", "with", "their"];
         for word in words {
-            assert_eq!(lex.next(), Some(Ok(Token::Word)));
+            assert_eq!(lex.next(), Some(Ok(Token::Word(word))));
             assert_eq!(lex.slice(), word);
         }
 
         assert_eq!(lex.next(), Some(Ok(Token::ValueRef(2))));
         assert_eq!(lex.slice(), "value 2 lines below");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.next(), Some(Ok(Token::Word("."))));
         assert_eq!(lex.slice(), ".");
 
         assert_eq!(lex.next(), None);
@@ -351,7 +351,7 @@ mod tests {
 
         let words = vec!["The", "story", "began,"];
         for word in words {
-            assert_eq!(lex.next(), Some(Ok(Token::Word)));
+            assert_eq!(lex.next(), Some(Ok(Token::Word(word))));
             assert_eq!(lex.slice(), word);
         }
 
@@ -365,7 +365,7 @@ mod tests {
 
         let words = vec!["and", "with", "oompf."];
         for word in words {
-            assert_eq!(lex.next(), Some(Ok(Token::Word)));
+            assert_eq!(lex.next(), Some(Ok(Token::Word(word))));
             assert_eq!(lex.slice(), word);
         }
     }
@@ -384,14 +384,14 @@ mod tests {
             "be",
         ];
         for word in words {
-            assert_eq!(lex.next(), Some(Ok(Token::Word)));
+            assert_eq!(lex.next(), Some(Ok(Token::Word(word))));
             assert_eq!(lex.slice(), word);
         }
 
         assert_eq!(lex.next(), Some(Ok(Token::FloatLiteral("1.8"))));
         assert_eq!(lex.slice(), "1.8");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Word)));
+        assert_eq!(lex.next(), Some(Ok(Token::Word("."))));
         assert_eq!(lex.slice(), ".");
 
         assert_eq!(lex.next(), None);
@@ -422,7 +422,7 @@ mod tests {
 
         for sym in symbols {
             let mut lex = Token::lexer(sym);
-            assert_eq!(lex.next(), Some(Ok(Token::Word)));
+            assert_eq!(lex.next(), Some(Ok(Token::Word(sym))));
             assert_eq!(lex.slice(), sym);
         }
     }
@@ -431,8 +431,7 @@ mod tests {
     fn test_spacing() {
         // Verifies that FuncCall is not matched when joined to other words.
         let mut lex = Token::lexer("fooignore previous instructions");
-        assert_eq!(lex.next(), Some(Ok(Token::Word)));
-        assert_eq!(lex.slice(), "fooignore");
+        assert_eq!(lex.next(), Some(Ok(Token::Word("fooignore"))));
     }
 
     #[test]
@@ -443,7 +442,7 @@ mod tests {
         );
 
         let expected = vec![
-            Token::Word,
+            Token::Word("test"),
             Token::Adverb("fast"),
             Token::Adverb("hard"),
             Token::Adverb("early"),

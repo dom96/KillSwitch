@@ -173,6 +173,14 @@ impl Evaluator {
         // Find the ident. Check built-ins first.
         for built_in in BUILT_INS.iter() {
             if is_anagram(&ident, built_in) {
+                // We cannot allow the names to match.
+                if ident == *built_in {
+                    return Err(EvalError {
+                        message: format!("Invalid func call, need an anagram of {}", ident),
+                        span: span.clone(),
+                    });
+                }
+
                 match *built_in {
                     "visibly" => {
                         let val = self.pop();
@@ -300,6 +308,14 @@ impl Evaluator {
             if let (Node::Chapter(_, children), _) = self.nodes[index].clone() {
                 if !is_anagram(&ident, &ch_ident) {
                     continue;
+                }
+
+                // We cannot allow the names to match.
+                if ident == ch_ident {
+                    return Err(EvalError {
+                        message: format!("Invalid func call, need an anagram of {}", ident),
+                        span: span.clone(),
+                    });
                 }
 
                 // Loop through nodes, back to front.
@@ -511,11 +527,34 @@ mod tests {
     }
 
     #[test]
+    fn test_builtin_func_call_must_be_anagram() {
+        let nodes = vec![
+            Node::Story(
+                "testly".to_string(),
+                vec![Node::FuncCall("multiply".to_string(), 0).spanned(0..0)],
+            )
+            .spanned(0..0),
+        ];
+
+        let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
+        evaluator.push(Value::Integer(5));
+        evaluator.push(Value::Integer(5));
+        let res = evaluator.eval_script();
+        assert_eq!(
+            res,
+            Err(EvalError {
+                message: "Invalid func call, need an anagram of multiply".to_string(),
+                span: 0..0
+            })
+        );
+    }
+
+    #[test]
     fn test_custom_func_call() {
         let nodes = vec![
             Node::Story(
                 "testly".to_string(),
-                vec![Node::FuncCall("testily".to_string(), 0).spanned(0..0)],
+                vec![Node::FuncCall("styleit".to_string(), 0).spanned(0..0)],
             )
             .spanned(0..0),
             Node::Chapter(
@@ -532,6 +571,28 @@ mod tests {
         assert_eq!(res, Ok(vec![Value::Integer(25)]));
     }
 
+    #[test]
+    fn test_custom_func_call_must_be_anagram() {
+        let nodes = vec![
+            Node::Story(
+                "testly".to_string(),
+                vec![Node::FuncCall("testily".to_string(), 0).spanned(0..0)],
+            )
+            .spanned(0..0),
+            Node::Chapter("testily".to_string(), vec![]).spanned(0..0),
+        ];
+
+        let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
+        let res = evaluator.eval_script();
+        assert_eq!(
+            res,
+            Err(EvalError {
+                message: "Invalid func call, need an anagram of testily".to_string(),
+                span: 0..0
+            })
+        );
+    }
+
     // Verifies that whatever is on the stack at the end of function
     // evaluation is cleared, with only the top of the stock preserved.
     #[test]
@@ -539,7 +600,7 @@ mod tests {
         let nodes = vec![
             Node::Story(
                 "testly".to_string(),
-                vec![Node::FuncCall("testily".to_string(), 0).spanned(0..0)],
+                vec![Node::FuncCall("tesitly".to_string(), 0).spanned(0..0)],
             )
             .spanned(0..0),
             Node::Chapter("testily".to_string(), vec![]).spanned(0..0),
@@ -612,7 +673,7 @@ mod tests {
         let nodes = vec![
             Node::Story(
                 "testly".to_string(),
-                vec![Node::FuncCall("testily".to_string(), 0).spanned(0..0)],
+                vec![Node::FuncCall("tesitly".to_string(), 0).spanned(0..0)],
             )
             .spanned(0..0),
             Node::Chapter("testily".to_string(), vec![Node::FuncReturn.spanned(0..0)])

@@ -37,6 +37,7 @@ We support common flat adverbs like fast/hard/late/high, plus any word that ends
 
 Definitions must be adverbs, but using the identifier (reading var/calling func) need to be anagrams
 of those adverbs. So they don't need to end in `-ly`. Though the anagrams themselves can be adverbs.
+Choosing an anagram which isn't a real word makes the interpreter very happy.
 
 ### Cheatsheet
 

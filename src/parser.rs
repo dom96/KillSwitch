@@ -90,11 +90,16 @@ where
         Token::Adverb(ident) => ident,
     };
 
-    let word_or_adverb = any().filter(|t| matches!(t, Token::Word | Token::Adverb(_)));
+    let word_or_adverb = any().filter(|t| matches!(t, Token::Word(_) | Token::Adverb(_)));
+
+    let word_or_adverb_to_ident = select! {
+        Token::Adverb(ident) => ident,
+        Token::Word(word) => word,
+    };
 
     let single_node = recursive(|value| {
         let func_call = just(Token::FuncCall)
-            .then(adverb_to_ident)
+            .then(word_or_adverb_to_ident)
             .then(word_or_adverb.repeated().collect::<Vec<_>>())
             .map_with(|((_func, ident), words), e| {
                 Node::FuncCall(ident.to_owned(), words.len()).spanned(e.span())
@@ -104,7 +109,7 @@ where
         let atom = select! {
             Token::FloatLiteral(s) = e => Node::FloatLiteral(s.parse().unwrap()).spanned(e.span()),
             Token::IntegerLiteral(s) = e => Node::IntLiteral(s.parse().unwrap()).spanned(e.span()),
-            Token::Word = e => Node::Word.spanned(e.span()),
+            Token::Word(_w) = e => Node::Word.spanned(e.span()),
             Token::Adverb(w) = e => Node::Adverb(w.to_owned()).spanned(e.span()),
             Token::Return = e => Node::FuncReturn.spanned(e.span()),
             Token::ValueRef(line_count) = e => Node::ValueRef(line_count).spanned(e.span()),
