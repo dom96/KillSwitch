@@ -1,7 +1,8 @@
 use crate::parser::{Node, Span, Spanned};
+use rand::prelude::IndexedRandom;
+use rand::rng;
 use std::collections::{HashMap, HashSet};
 use std::io;
-use std::str::Bytes;
 use std::sync::LazyLock;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -30,7 +31,7 @@ pub struct Evaluator {
 
     // A mapping from line number to a literal (int/float/str/adverb).
     // Used for ValueRef evaluation.
-    line_to_literal: HashMap<usize, Node>,
+    line_to_literal: HashMap<usize, Vec<Node>>,
 }
 
 static BUILT_INS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
@@ -368,20 +369,29 @@ impl Evaluator {
             .expect("Evaluator needs LineIndex")
             .get_line(span.start);
         let wanted_line = our_line + lines_below;
-        let wanted_node = self.line_to_literal.get(&wanted_line);
+        let wanted_nodes = self.line_to_literal.get(&wanted_line);
 
-        match wanted_node {
-            Some(node) => {
+        match wanted_nodes {
+            Some(nodes) => {
+                let mut my_rng = rng();
+                let node = (*nodes).choose(&mut my_rng);
+
                 // Push onto the stack.
                 let value = match node {
-                    Node::FloatLiteral(f) => Value::Float(*f),
-                    Node::IntLiteral(i) => Value::Integer(*i),
-                    Node::Adverb(a) => {
+                    Some(Node::FloatLiteral(f)) => Value::Float(*f),
+                    Some(Node::IntLiteral(i)) => Value::Integer(*i),
+                    Some(Node::Adverb(a)) => {
                         // We look up the current focus variable, whatever char it is we count in the
                         // adverb. Then push that as the value.
                         let focus_var_value = self.get_focus_var();
                         let value = count_letters_in(focus_var_value, a) as i64;
                         Value::Integer(value)
+                    }
+                    None => {
+                        return Err(EvalError {
+                            message: format!("No value {} lines below", lines_below),
+                            span: span.clone(),
+                        });
                     }
                     _ => {
                         panic!("Unsupported Node being pushed onto stack");
@@ -403,6 +413,7 @@ impl Evaluator {
 }
 
 // A LineIndex which ignores empty lines. Used for ValueRef evaluation.
+#[derive(Debug, Clone)]
 pub struct LineIndex {
     line_starts: Vec<usize>,
 }
@@ -458,8 +469,8 @@ fn count_letters_in(letter: u8, word: &str) -> usize {
 fn collect_values(
     nodes: &Vec<Spanned<Node>>,
     line_index: &Option<LineIndex>,
-) -> HashMap<usize, Node> {
-    let mut line_to_literal = HashMap::new();
+) -> HashMap<usize, Vec<Node>> {
+    let mut line_to_literal: HashMap<usize, Vec<Node>> = HashMap::new();
     for node in nodes {
         match node {
             (Node::FloatLiteral(f), span) => {
@@ -467,21 +478,30 @@ fn collect_values(
                     .as_ref()
                     .expect("Evaluator needs LineIndex")
                     .get_line(span.start);
-                line_to_literal.insert(line, Node::FloatLiteral(*f));
+                line_to_literal
+                    .entry(line)
+                    .or_default()
+                    .push(Node::FloatLiteral(*f));
             }
             (Node::IntLiteral(i), span) => {
                 let line = line_index
                     .as_ref()
                     .expect("Evaluator needs LineIndex")
                     .get_line(span.start);
-                line_to_literal.insert(line, Node::IntLiteral(*i));
+                line_to_literal
+                    .entry(line)
+                    .or_default()
+                    .push(Node::IntLiteral(*i));
             }
             (Node::Adverb(a), span) => {
                 let line = line_index
                     .as_ref()
                     .expect("Evaluator needs LineIndex")
                     .get_line(span.start);
-                line_to_literal.insert(line, Node::Adverb(a.to_string()));
+                line_to_literal
+                    .entry(line)
+                    .or_default()
+                    .push(Node::Adverb(a.to_string()));
             }
             (Node::Story(_, children), _) => {
                 line_to_literal.extend(collect_values(children, line_index));
@@ -648,6 +668,50 @@ mod tests {
         let mut evaluator = Evaluator::new(nodes, Some(index));
         let res = evaluator.eval_script();
         assert_eq!(res, Ok(vec![Value::Float(4.2)]));
+    }
+
+    #[test]
+    fn test_value_push_random_float() {
+        // Also testing repeated newlines here. These should be ignored.
+        let src = "This story starts testly.\n\n\n\n\nThere is something with a value 2 lines below.\n\nLine one\n\nMy secret value is 4.2 or is it 6.9 or maybe 95.30";
+        let index = LineIndex::new(src);
+        let nodes = vec![
+            Node::Story(
+                "testly".to_string(),
+                vec![Node::ValueRef(2).spanned(30..76)],
+            )
+            .spanned(0..25),
+            Node::FloatLiteral(4.2).spanned(107..109),
+            Node::FloatLiteral(6.9).spanned(117..119),
+            Node::FloatLiteral(95.30).spanned(129..134),
+        ];
+
+        // We expect to get a random value. Loop until we get at least two of the values.
+        let mut got_42 = false;
+        let mut got_95_30 = false;
+
+        for i in 0..1_000 {
+            if got_42 && got_95_30 {
+                break;
+            }
+
+            let mut evaluator = Evaluator::new(nodes.clone(), Some(index.clone()));
+            let res = evaluator.eval_script();
+            match res.unwrap()[0] {
+                Value::Float(4.2) => {
+                    got_42 = true;
+                }
+                Value::Float(95.30) => {
+                    got_95_30 = true;
+                }
+                Value::Float(6.9) => (),
+                _ => {
+                    panic!("Not expected any other values.");
+                }
+            }
+        }
+
+        assert!(got_42 && got_95_30);
     }
 
     #[test]

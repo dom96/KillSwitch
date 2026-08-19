@@ -8,3 +8,4 @@ ariadne = "0.6.0"
 chumsky = "0.13.0"
 clap = { version = "4.6.6", features = ["derive"] }
 logos = "0.16.1"
+rand = "0.10.2"
