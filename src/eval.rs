@@ -144,6 +144,8 @@ impl Evaluator {
             (Node::FuncReturn, _) => Ok(true),
             (Node::Word, _) => Ok(false),
             (Node::Adverb(_), _) => Ok(false),
+            (Node::FloatLiteral(_), _) => Ok(false),
+            (Node::IntLiteral(_), _) => Ok(false),
             _ => {
                 unimplemented!("TODO {:?}", node);
             }

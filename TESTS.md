@@ -6,17 +6,25 @@ The tests that I run with LLMs to see if they can edit/create KillSwitch code co
 
 Prompt: `Read SPEC.md then please implement celsius.ks which does the opposite conversion to fahrenheit.ks.`
 
-This TESTS.md file isn't present for the test.
+Using opencode permissions, we only allow the reading of SPEC.md, src/AGENTS.md and tests/fahrenheit.ks.
 
 ### Kimi 2.7
 
-Runtime: 8 minutes
+Runtime: 10 minutes 41s
 
-Cost: $0.19
+Cost: $0.16
 
-- Incorrect "DEDUCTIVELY" call. Not enough words after it (10 vs 11)
-- Incorrect "divisely" call. Not enough words.
-- Reused "scorchingly" for both chapter and story names.
+Interesting notes:
+
+- Uses Python to generate anagrams and count letters
+- Also uses Python to verify it got the anagrams correct
+- Runs successfully, no eval errors
+
+Mistakes:
+
+- Wrong formula. (F * 5/9) - 32
+- Prompting again with example failing result leads to it making a different mistake: mentioning value, but not referencing it.
+- Works after 3rd prompt.
 
 ### Opus 4.5
 
