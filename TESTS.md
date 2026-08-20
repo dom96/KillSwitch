@@ -28,15 +28,21 @@ Mistakes:
 
 ### Opus 4.5
 
-Runtime: 37.2s
+Runtime: 2m 45s
 
-Cost: $0.16
+Cost: $0.40
 
-- Starts by calling "visibly" which will fail because there is nothing on the stack.
-- Tries to call "deductively" using the "yducdeivelt" anagram, but not the correct
-  number of words after the call (9 when it should be 11)
-- Uses the same name for story and chapter.
-- Asks for a value 2 lines below, when there is only 1 line below it. Also does it outside chapter.
+Interesting notes:
+
+- Writes out "Line 33: ...\n Line 34: ...\n" to help itself count lines.
+
+Mistakes:
+
+- calls `llychilgin` without the right number of words after it
+- calls `YLEVITCUDED` without the right number of words after it
+- after prompting about above, it failed to count words correctly again, put 12 words instead of 11
+- it's royally getting confused about the "AND", it thinks that it doesn't count as part of the word count, but it does
+- even after many prompts to get it to figure out the word count, it finally doesn't end up with an eval error, but it does not calculate correctly
 
 ### Sonnet 4.5
 
