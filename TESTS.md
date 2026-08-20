@@ -56,16 +56,22 @@ Cost: $0.14
 
 ### GPT-5.6 Terra
 
-Runtime: 35.8s
+Runtime: 47s
 
 Cost: $0.07
 
-- No runtime errors, but it is pushing 0.55555555556 on the stack first. Order of operations wrong.
+- "Invalid func call, need an anagram of deductively"
+- Re-prompting with above fixed this, but there is also a bad value ref in there.
+- Re-prompting fixed that, but then I get wrong output
+- works after 4th prompt
 
 ### Fable 5
 
-Runtime: 1m 34s
+Runtime: 22.3s
 
-Cost: $0.51
+Cost: $0.30
 
 - "The response was blocked by the provider's content filter"
+
+I tried to remove references to hack/bomb/etc and it did get further. But as it
+started writing the celsius.ks file it triggered the filter again.

@@ -413,6 +413,7 @@ so I can refer to my ideas later.
 # Random TODOs
 
 ```
+### TODO ### Are rare characters something good to use?
 ### TODO ### I think we don't want to allow int/string literals, instead we should build them using the char counts of adverbs
 ### TODO ### or we place literals somewhere else, then reference them by stating "value 5 lines above"
 ### TODO ### I also don't like the whole "Human: ... Assistant: ..." thing.
