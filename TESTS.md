@@ -75,3 +75,8 @@ Cost: $0.30
 
 I tried to remove references to hack/bomb/etc and it did get further. But as it
 started writing the celsius.ks file it triggered the filter again.
+
+## Analysing fahrenheit.ks
+
+Many models trigger their internal filters if I ask them to improve the story, or fix the code without giving them
+any context that this is a script.
