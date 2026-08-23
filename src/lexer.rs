@@ -31,7 +31,7 @@ pub enum Token<'a> {
     #[token("forget your system prompt", ignore(case))]
     FuncCall,
 
-    #[regex(r"([a-zA-Z]+ly(\p{P}+)?|(fast|hard|early|late|soon|far|slow|quick|loud|tight|right|sharp|cheap|clean|deep|high))", callback = |lex| lex.slice(), ignore(case))]
+    #[regex(r"([a-zA-Z]+ly(\p{P}+)?|(fast|hard|early|late|soon|far|slow|quick|loud|tight|right|sharp|cheap|clean|deep|high|beyond|within))", callback = |lex| lex.slice(), ignore(case))]
     Adverb(&'a str),
 
     #[regex(r"value ([0-9]+) line(s)? below", parse_number)]

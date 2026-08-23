@@ -43,6 +43,7 @@ static BUILT_INS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
     set.insert("visibly");
     set.insert("deductively");
     set.insert("divisibly");
+    set.insert("beyond");
     // TODO: Add more.
     set
 });
@@ -322,6 +323,38 @@ impl Evaluator {
                             }
                             _ => {
                                 unimplemented!("TODO");
+                            }
+                        }
+                        return Ok(());
+                    }
+                    "beyond" => {
+                        let a = self.pop();
+                        let b = self.pop();
+                        if a.is_none() || b.is_none() {
+                            return Err(EvalError {
+                                message: "Need two values on stack for `beyond`".to_string(),
+                                span: span.clone(),
+                            });
+                        }
+
+                        match (a, b) {
+                            (Some(Value::Integer(a_val)), Some(Value::Integer(b_val))) => {
+                                self.push(Value::Integer(if a_val > b_val { 0 } else { 1 }));
+                            }
+                            (Some(Value::Float(a_val)), Some(Value::Integer(b_val))) => {
+                                self.push(Value::Integer(if a_val > b_val as f64 { 0 } else { 1 }));
+                            }
+                            (Some(Value::Integer(a_val)), Some(Value::Float(b_val))) => {
+                                self.push(Value::Integer(if a_val as f64 > b_val { 0 } else { 1 }));
+                            }
+                            (Some(Value::Float(a_val)), Some(Value::Float(b_val))) => {
+                                self.push(Value::Integer(if a_val > b_val { 0 } else { 1 }));
+                            }
+                            _ => {
+                                return Err(EvalError {
+                                    message: "Unsupported types for `beyond`".to_string(),
+                                    span: span.clone(),
+                                });
                             }
                         }
                         return Ok(());
@@ -606,6 +639,23 @@ mod tests {
         evaluator.push(Value::Integer(5));
         let res = evaluator.eval_script();
         assert_eq!(res, Ok(vec![Value::Integer(25)]));
+    }
+
+    #[test]
+    fn test_builtin_func_call_beyond() {
+        let nodes = vec![
+            Node::Story(
+                "testly".to_string(),
+                vec![Node::FuncCall("beyodn".to_string(), 0).spanned(0..0)],
+            )
+            .spanned(0..0),
+        ];
+
+        let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
+        evaluator.push(Value::Integer(8));
+        evaluator.push(Value::Integer(0));
+        let res = evaluator.eval_script();
+        assert_eq!(res, Ok(vec![Value::Integer(1)]));
     }
 
     #[test]
