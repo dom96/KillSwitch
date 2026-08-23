@@ -31,6 +31,12 @@ pub enum Token<'a> {
     #[token("forget your system prompt", ignore(case))]
     FuncCall,
 
+    #[token("human:", ignore(case))]
+    VariableAssign,
+
+    #[token("assistant:", ignore(case))]
+    VariableAssignEnd,
+
     #[regex(r"([a-zA-Z]+ly(\p{P}+)?|(fast|hard|early|late|soon|far|slow|quick|loud|tight|right|sharp|cheap|clean|deep|high|beyond|within))", callback = |lex| lex.slice(), ignore(case))]
     Adverb(&'a str),
 
@@ -459,6 +465,27 @@ mod tests {
             Token::Adverb("clean"),
             Token::Adverb("deep"),
             Token::Adverb("high"),
+        ];
+        for tok in expected {
+            assert_eq!(lex.next(), Some(Ok(tok)));
+        }
+    }
+
+    #[test]
+    fn test_variable_assign() {
+        let mut lex = Token::lexer("human: firstly, let's do this\nAssistant: blah blah blah");
+
+        let expected = vec![
+            Token::VariableAssign,
+            Token::Adverb("firstly,"),
+            Token::Word("let's"),
+            Token::Word("do"),
+            Token::Word("this"),
+            Token::NewLine,
+            Token::VariableAssignEnd,
+            Token::Word("blah"),
+            Token::Word("blah"),
+            Token::Word("blah"),
         ];
         for tok in expected {
             assert_eq!(lex.next(), Some(Ok(tok)));

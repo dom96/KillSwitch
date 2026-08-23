@@ -16,6 +16,9 @@ pub struct Evaluator {
     // Used during evaluation.
     stack: Vec<Value>,
 
+    // Global variable assignments, used during evaluation.
+    variables: HashMap<String, Value>,
+
     // The nodes that this evaluator is evaluating.
     nodes: Vec<Spanned<Node>>,
 
@@ -59,6 +62,7 @@ impl Evaluator {
         Self {
             line_to_literal: collect_values(&nodes, &line_index),
             stack: Vec::new(),
+            variables: HashMap::new(),
             nodes: nodes,
             idents: HashMap::new(),
             line_index: line_index,
@@ -148,6 +152,10 @@ impl Evaluator {
             (Node::Adverb(_), _) => Ok(false),
             (Node::FloatLiteral(_), _) => Ok(false),
             (Node::IntLiteral(_), _) => Ok(false),
+            (Node::VariableAssign(ident), span) => {
+                self.eval_var_assign(ident, span)?;
+                Ok(false)
+            }
             _ => {
                 unimplemented!("TODO {:?}", node);
             }
@@ -502,6 +510,23 @@ impl Evaluator {
         }
     }
 
+    fn eval_var_assign(&mut self, raw_ident: &str, span: &Span) -> Result<(), EvalError> {
+        // Process the ident to remove punctuation.
+        let ident = normalize_ident(raw_ident);
+
+        let val = self.stack.pop();
+        match val {
+            Some(v) => {
+                self.variables.insert(ident, v);
+                Ok(())
+            }
+            None => Err(EvalError {
+                message: "Stack empty".to_string(),
+                span: span.clone(),
+            }),
+        }
+    }
+
     fn get_focus_var(&self) -> u8 {
         b'r' // TODO: Implement variables.
     }
@@ -608,6 +633,7 @@ fn collect_values(
             (Node::FuncReturn, _) => (),
             (Node::ValueRef(_), _) => (),
             (Node::Word, _) => (),
+            (Node::VariableAssign(_), _) => (),
         }
     }
 
@@ -888,5 +914,22 @@ mod tests {
                 span: 0..0
             })
         );
+    }
+
+    #[test]
+    fn test_var_assign() {
+        let nodes = vec![
+            Node::Story(
+                "testly".to_string(),
+                vec![Node::VariableAssign("folly".to_string()).spanned(0..0)],
+            )
+            .spanned(0..0),
+        ];
+
+        let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
+        evaluator.push(Value::Integer(42));
+        let res = evaluator.eval_script();
+        assert_eq!(res, Ok(vec![]));
+        assert_eq!(evaluator.variables.get("folly"), Some(&Value::Integer(42)));
     }
 }

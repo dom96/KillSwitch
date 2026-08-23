@@ -22,6 +22,7 @@ pub enum Node {
     ValueRef(usize), // count of "lines below"
     Adverb(String),  // can be referenced by ValueRef
     Word,
+    VariableAssign(String),
 }
 
 impl fmt::Display for Node {
@@ -54,6 +55,7 @@ impl fmt::Display for Node {
             Node::ValueRef(lines) => write!(f, "ValueRef({})", lines),
             Node::Adverb(adverb) => write!(f, "Adverb({})", adverb),
             Node::Word => write!(f, "Word"),
+            Node::VariableAssign(adverb) => write!(f, "Variable({})", adverb),
         }
     }
 }
@@ -98,11 +100,25 @@ where
     };
 
     let single_node = recursive(|value| {
+        // TODO: allow ident adverb anywhere in FuncCall/VariableAssign.
         let func_call = just(Token::FuncCall)
             .then(word_or_adverb_to_ident)
             .then(word_or_adverb.repeated().collect::<Vec<_>>())
             .map_with(|((_func, ident), words), e| {
                 Node::FuncCall(ident.to_owned(), words.len()).spanned(e.span())
+            });
+
+        let variable_assignment = just(Token::VariableAssign)
+            .then(word_or_adverb_to_ident)
+            .then(
+                word_or_adverb
+                    .repeated()
+                    .separated_by(just(Token::NewLine))
+                    .collect::<Vec<_>>(),
+            )
+            .then_ignore(just(Token::VariableAssignEnd))
+            .map_with(|((_func, ident), _words), e| {
+                Node::VariableAssign(ident.to_owned()).spanned(e.span())
             });
 
         // Ref: https://docs.rs/chumsky/latest/chumsky/macro.select.html
@@ -114,7 +130,8 @@ where
             Token::Return = e => Node::FuncReturn.spanned(e.span()),
             Token::ValueRef(line_count) = e => Node::ValueRef(line_count).spanned(e.span()),
         }
-        .or(func_call);
+        .or(func_call)
+        .or(variable_assignment);
 
         let node_list = value
             .clone()
@@ -294,5 +311,18 @@ mod tests {
             vec![Node::FuncCall("frigidly,".to_string(), 1).spanned(28..71)],
         );
         assert_eq!(result[0].unspanned(), &expected);
+    }
+
+    #[test]
+    fn test_var_assign() {
+        let parsed_result = lex_to_parsed_result("human: firstly, let's do this\nAssistant: blah");
+
+        let result = parsed_result.into_result().unwrap();
+
+        let expected = [
+            Node::VariableAssign("firstly,".to_string()).spanned(0..40),
+            Node::Word.spanned(41..45),
+        ];
+        assert_eq!(result, expected);
     }
 }

