@@ -132,6 +132,8 @@ impl Evaluator {
             }
         }
 
+        println!("{:?} {:?}", self.stack, self.variables);
+
         return Ok(self.stack.clone());
     }
 
@@ -156,6 +158,10 @@ impl Evaluator {
                 self.eval_var_assign(ident, span)?;
                 Ok(false)
             }
+            (Node::VariableRead(ident), span) => {
+                self.eval_var_read(ident, span)?;
+                Ok(false)
+            }
             _ => {
                 unimplemented!("TODO {:?}", node);
             }
@@ -168,6 +174,9 @@ impl Evaluator {
         word_count: usize,
         span: &Span,
     ) -> Result<(), EvalError> {
+        // TODO: We can make func lookup faster here, by using the same trick as
+        // for variable reads.
+
         // Process the ident to remove punctuation.
         let ident = normalize_ident(raw_ident);
 
@@ -512,7 +521,7 @@ impl Evaluator {
 
     fn eval_var_assign(&mut self, raw_ident: &str, span: &Span) -> Result<(), EvalError> {
         // Process the ident to remove punctuation.
-        let ident = normalize_ident(raw_ident);
+        let ident = sort_ident(normalize_ident(raw_ident));
 
         let val = self.stack.pop();
         match val {
@@ -522,6 +531,23 @@ impl Evaluator {
             }
             None => Err(EvalError {
                 message: "Stack empty".to_string(),
+                span: span.clone(),
+            }),
+        }
+    }
+
+    fn eval_var_read(&mut self, raw_ident: &str, span: &Span) -> Result<(), EvalError> {
+        // Process the ident to remove punctuation.
+        let ident = sort_ident(normalize_ident(raw_ident));
+
+        let value = self.variables.get(&ident);
+        match value {
+            Some(v) => {
+                self.stack.push(v.clone());
+                Ok(())
+            }
+            None => Err(EvalError {
+                message: format!("Unknown variable {}", raw_ident),
                 span: span.clone(),
             }),
         }
@@ -634,6 +660,7 @@ fn collect_values(
             (Node::ValueRef(_), _) => (),
             (Node::Word, _) => (),
             (Node::VariableAssign(_), _) => (),
+            (Node::VariableRead(_), _) => (),
         }
     }
 
@@ -644,6 +671,12 @@ fn normalize_ident(ident: &str) -> String {
     ident
         .trim_matches(|c: char| c.is_ascii_punctuation())
         .to_ascii_lowercase()
+}
+
+fn sort_ident(ident: String) -> String {
+    let mut chars: Vec<char> = ident.chars().collect();
+    chars.sort_unstable();
+    chars.into_iter().collect()
 }
 
 #[cfg(test)]
@@ -930,6 +963,27 @@ mod tests {
         evaluator.push(Value::Integer(42));
         let res = evaluator.eval_script();
         assert_eq!(res, Ok(vec![]));
-        assert_eq!(evaluator.variables.get("folly"), Some(&Value::Integer(42)));
+        assert_eq!(
+            evaluator.variables.get(&sort_ident("folly".to_string())),
+            Some(&Value::Integer(42))
+        );
+    }
+
+    #[test]
+    fn test_var_read() {
+        let nodes = vec![
+            Node::Story(
+                "testly".to_string(),
+                vec![Node::VariableRead("oflly".to_string()).spanned(0..0)],
+            )
+            .spanned(0..0),
+        ];
+
+        let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
+        evaluator
+            .variables
+            .insert(sort_ident("folly".to_string()), Value::Integer(66));
+        let res = evaluator.eval_script();
+        assert_eq!(res, Ok(vec![Value::Integer(66)]));
     }
 }

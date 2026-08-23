@@ -23,6 +23,7 @@ pub enum Node {
     Adverb(String),  // can be referenced by ValueRef
     Word,
     VariableAssign(String),
+    VariableRead(String),
 }
 
 impl fmt::Display for Node {
@@ -55,7 +56,8 @@ impl fmt::Display for Node {
             Node::ValueRef(lines) => write!(f, "ValueRef({})", lines),
             Node::Adverb(adverb) => write!(f, "Adverb({})", adverb),
             Node::Word => write!(f, "Word"),
-            Node::VariableAssign(adverb) => write!(f, "Variable({})", adverb),
+            Node::VariableAssign(adverb) => write!(f, "VariableAssign({})", adverb),
+            Node::VariableRead(ident) => write!(f, "VariableRead({})", ident),
         }
     }
 }
@@ -129,6 +131,7 @@ where
             Token::Adverb(w) = e => Node::Adverb(w.to_owned()).spanned(e.span()),
             Token::Return = e => Node::FuncReturn.spanned(e.span()),
             Token::ValueRef(line_count) = e => Node::ValueRef(line_count).spanned(e.span()),
+            Token::VariableRead(ident) = e => Node::VariableRead(ident.into()).spanned(e.span()),
         }
         .or(func_call)
         .or(variable_assignment);
@@ -322,6 +325,19 @@ mod tests {
         let expected = [
             Node::VariableAssign("firstly,".to_string()).spanned(0..40),
             Node::Word.spanned(41..45),
+        ];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_var_read() {
+        let parsed_result = lex_to_parsed_result("imminently = 123;\nword");
+
+        let result = parsed_result.into_result().unwrap();
+
+        let expected = [
+            Node::VariableRead("imminently".to_string()).spanned(0..17),
+            Node::Word.spanned(18..22),
         ];
         assert_eq!(result, expected);
     }
