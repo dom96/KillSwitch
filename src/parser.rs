@@ -24,6 +24,7 @@ pub enum Node {
     Word,
     VariableAssign(String),
     VariableRead(String),
+    Hack(String, String),
 }
 
 impl fmt::Display for Node {
@@ -58,6 +59,7 @@ impl fmt::Display for Node {
             Node::Word => write!(f, "Word"),
             Node::VariableAssign(adverb) => write!(f, "VariableAssign({})", adverb),
             Node::VariableRead(ident) => write!(f, "VariableRead({})", ident),
+            Node::Hack(a, b) => write!(f, "Hack({}, {})", a, b),
         }
     }
 }
@@ -123,6 +125,21 @@ where
                 Node::VariableAssign(ident.to_owned()).spanned(e.span())
             });
 
+        let hack_stmt = just(Token::HackStmt)
+            .then(word_or_adverb.repeated().collect::<Vec<_>>())
+            .try_map_with(|((_), words), e| {
+                let mut adverbs = words.into_iter().filter(|t| matches!(t, Token::Adverb(_)));
+                match (adverbs.next(), adverbs.next()) {
+                    (Some(Token::Adverb(a)), Some(Token::Adverb(b))) => {
+                        Ok(Node::Hack(a.to_string(), b.to_string()).spanned(e.span()))
+                    }
+                    _ => Err(Rich::custom(
+                        e.span(),
+                        "Hack statement requires at least two adverbs",
+                    )),
+                }
+            });
+
         // Ref: https://docs.rs/chumsky/latest/chumsky/macro.select.html
         let atom = select! {
             Token::FloatLiteral(s) = e => Node::FloatLiteral(s.parse().unwrap()).spanned(e.span()),
@@ -134,7 +151,8 @@ where
             Token::VariableRead(ident) = e => Node::VariableRead(ident.into()).spanned(e.span()),
         }
         .or(func_call)
-        .or(variable_assignment);
+        .or(variable_assignment)
+        .or(hack_stmt);
 
         let node_list = value
             .clone()
@@ -339,6 +357,17 @@ mod tests {
             Node::VariableRead("imminently".to_string()).spanned(0..17),
             Node::Word.spanned(18..22),
         ];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_hack_stmt() {
+        let parsed_result = lex_to_parsed_result("hack_the_planet murderously and brutally");
+
+        let result = parsed_result.into_result().unwrap();
+
+        let expected =
+            [Node::Hack("murderously".to_string(), "brutally".to_string()).spanned(0..40)];
         assert_eq!(result, expected);
     }
 }

@@ -162,6 +162,10 @@ impl Evaluator {
                 self.eval_var_read(ident, span)?;
                 Ok(false)
             }
+            (Node::Hack(a, b), span) => {
+                self.eval_hack(a, b, span)?;
+                Ok(false)
+            }
             _ => {
                 unimplemented!("TODO {:?}", node);
             }
@@ -553,6 +557,22 @@ impl Evaluator {
         }
     }
 
+    fn eval_hack(&mut self, a: &String, b: &String, span: &Span) -> Result<(), EvalError> {
+        let val = self.stack.pop();
+
+        match val {
+            Some(Value::Integer(v)) if v == 0 => self.eval_func_call(b, b.len(), span),
+            Some(Value::Integer(v)) if v == 1 => self.eval_func_call(a, a.len(), span),
+            _ => Err(EvalError {
+                message: format!(
+                    "Bad value for hack statement, expected 1 or 0, got {:?}",
+                    val
+                ),
+                span: span.clone(),
+            }),
+        }
+    }
+
     fn get_focus_var(&self) -> u8 {
         b'r' // TODO: Implement variables.
     }
@@ -661,6 +681,7 @@ fn collect_values(
             (Node::Word, _) => (),
             (Node::VariableAssign(_), _) => (),
             (Node::VariableRead(_), _) => (),
+            (Node::Hack(_, _), _) => (),
         }
     }
 
@@ -985,5 +1006,33 @@ mod tests {
             .insert(sort_ident("folly".to_string()), Value::Integer(66));
         let res = evaluator.eval_script();
         assert_eq!(res, Ok(vec![Value::Integer(66)]));
+    }
+
+    #[test]
+    fn test_hack_stmt() {
+        let nodes = vec![
+            Node::Story(
+                "testly".to_string(),
+                vec![Node::Hack("firgidly".to_string(), "fllyo".to_string()).spanned(0..0)],
+            )
+            .spanned(0..0),
+            Node::Chapter(
+                "frigidly".to_string(),
+                vec![Node::FuncCall("miltypul".to_string(), 0).spanned(0..0)],
+            )
+            .spanned(0..0),
+            Node::Chapter(
+                "folly".to_string(),
+                vec![Node::FuncCall("additioanlly".to_string(), 0).spanned(0..0)],
+            )
+            .spanned(0..0),
+        ];
+
+        let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
+        evaluator.push(Value::Integer(5));
+        evaluator.push(Value::Integer(5));
+        evaluator.push(Value::Integer(0));
+        let res = evaluator.eval_script();
+        assert_eq!(res, Ok(vec![Value::Integer(10)]));
     }
 }

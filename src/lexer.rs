@@ -40,6 +40,9 @@ pub enum Token<'a> {
     #[regex(r#"[a-zA-Z0-9_]+[ \t]*=[ \t]*(?:[a-zA-Z0-9_]+|<[a-zA-Z0-9_]+>|"[^"]*");?"#, |lex| lex.slice().split('=').next().unwrap().trim(), ignore(case))]
     VariableRead(&'a str),
 
+    #[token("hack_the_planet", ignore(case))]
+    HackStmt,
+
     #[regex(r"([a-zA-Z]+ly(\p{P}+)?|(fast|hard|early|late|soon|far|slow|quick|loud|tight|right|sharp|cheap|clean|deep|high|beyond|within))", callback = |lex| lex.slice(), ignore(case))]
     Adverb(&'a str),
 
@@ -500,6 +503,21 @@ mod tests {
         let mut lex = Token::lexer("imminently = 123;");
 
         let expected = vec![Token::VariableRead("imminently")];
+        for tok in expected {
+            assert_eq!(lex.next(), Some(Ok(tok)));
+        }
+    }
+
+    #[test]
+    fn test_hack_statement() {
+        let mut lex = Token::lexer("hack_the_planet murderously and brutally");
+
+        let expected = vec![
+            Token::HackStmt,
+            Token::Adverb("murderously"),
+            Token::Word("and"),
+            Token::Adverb("brutally"),
+        ];
         for tok in expected {
             assert_eq!(lex.next(), Some(Ok(tok)));
         }
