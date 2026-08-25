@@ -47,6 +47,7 @@ static BUILT_INS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
     set.insert("deductively");
     set.insert("divisibly");
     set.insert("beyond");
+    set.insert("debuggably");
     // TODO: Add more.
     set
 });
@@ -131,8 +132,6 @@ impl Evaluator {
                 });
             }
         }
-
-        println!("{:?} {:?}", self.stack, self.variables);
 
         return Ok(self.stack.clone());
     }
@@ -411,6 +410,10 @@ impl Evaluator {
                                 });
                             }
                         }
+                        return Ok(());
+                    }
+                    "debuggably" => {
+                        println!("DEBUG: stack {:?} vars {:?}", self.stack, self.variables);
                         return Ok(());
                     }
                     &_ => unimplemented!(),

