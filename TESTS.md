@@ -1,6 +1,31 @@
 # Tests
 
-The tests that I run with LLMs to see if they can edit/create KillSwitch code correctly.
+The tests that I run with LLMs to see if they can edit/create/understand KillSwitch code correctly.
+
+All tests here are executed without the AGENTS.md file present in the tests/ dir.
+
+## Max.ks understanding
+
+With max.ks renamed to test1.ks. Ask:
+
+```
+Read SPEC.md and tests/test1.ks then explain to me exactly what tests/test1.ks will output. Do not read any other files.
+```
+
+Interesting thing here is that LLMs are able to use any leaked info very well. Even just my chapter having the name "maximally"
+gave it a clue that it returns the max of the inputs. Removing this info immediately made it much harder for it.
+
+### GPT-5.6 Sol
+
+It gets caught out thinking that execution is top-to-bottom. It cannot determine the "exact stdout".
+
+### Kimi 2.7
+
+Also thinks execution is top-to-bottom. States that execution will hang waiting on stdin.
+
+### Opus 5
+
+Same as the others. It seems to consider reversing the execution, but then makes other bad assumptions that make it think that execution order also doesn't work.
 
 ## Fahrenheit.ks -> Celsius.ks
 
