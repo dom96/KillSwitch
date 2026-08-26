@@ -1,4 +1,4 @@
-use crate::parser::{Node, Span, Spanned};
+use crate::parser::{Node, Span, Spanned, Unspanned};
 use rand::prelude::IndexedRandom;
 use rand::rng;
 use std::collections::{HashMap, HashSet};
@@ -506,6 +506,10 @@ impl Evaluator {
                         let value = count_letters_in(focus_var_value, a) as i64;
                         Value::Integer(value)
                     }
+                    Some(Node::ValueRef(value)) => {
+                        // We treat the number inside a value ref as a standard integer
+                        Value::Integer(*value as i64)
+                    }
                     None => {
                         return Err(EvalError {
                             message: format!("No value {} lines below", lines_below),
@@ -680,7 +684,16 @@ fn collect_values(
             }
             (Node::FuncCall(_, _), _) => (),
             (Node::FuncReturn, _) => (),
-            (Node::ValueRef(_), _) => (),
+            (Node::ValueRef(n), span) => {
+                let line = line_index
+                    .as_ref()
+                    .expect("Evaluator needs LineIndex")
+                    .get_line(span.start);
+                line_to_literal
+                    .entry(line)
+                    .or_default()
+                    .push(node.unspanned().clone());
+            }
             (Node::Word, _) => (),
             (Node::VariableAssign(_), _) => (),
             (Node::VariableRead(_), _) => (),
