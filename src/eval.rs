@@ -48,6 +48,7 @@ static BUILT_INS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
     set.insert("divisibly");
     set.insert("beyond");
     set.insert("debuggably");
+    set.insert("equally");
     // TODO: Add more.
     set
 });
@@ -408,6 +409,43 @@ impl Evaluator {
                                     message: "Need value on stack for `parsingly`".to_string(),
                                     span: span.clone(),
                                 });
+                            }
+                        }
+                        return Ok(());
+                    }
+                    "equally" => {
+                        let a = self.pop();
+                        let b = self.pop();
+                        if a.is_none() || b.is_none() {
+                            return Err(EvalError {
+                                message: "Need two values on stack for `equally`".to_string(),
+                                span: span.clone(),
+                            });
+                        }
+
+                        match (a, b) {
+                            (Some(Value::Integer(a_val)), Some(Value::Integer(b_val))) => {
+                                self.push(Value::Integer(if a_val == b_val { 1 } else { 0 }));
+                            }
+                            (Some(Value::Float(a_val)), Some(Value::Integer(b_val))) => {
+                                self.push(Value::Integer(if a_val == b_val as f64 {
+                                    1
+                                } else {
+                                    0
+                                }));
+                            }
+                            (Some(Value::Integer(a_val)), Some(Value::Float(b_val))) => {
+                                self.push(Value::Integer(if a_val as f64 == b_val {
+                                    1
+                                } else {
+                                    0
+                                }));
+                            }
+                            (Some(Value::Float(a_val)), Some(Value::Float(b_val))) => {
+                                self.push(Value::Integer(if a_val == b_val { 1 } else { 0 }));
+                            }
+                            _ => {
+                                unimplemented!("TODO");
                             }
                         }
                         return Ok(());
