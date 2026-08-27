@@ -96,7 +96,12 @@ where
         Token::Adverb(ident) => ident,
     };
 
-    let word_or_adverb = any().filter(|t| matches!(t, Token::Word(_) | Token::Adverb(_)));
+    let word_like = any().filter(|t| {
+        matches!(
+            t,
+            Token::Word(_) | Token::Adverb(_) | Token::IntegerLiteral(_) | Token::FloatLiteral(_)
+        )
+    });
 
     let word_or_adverb_to_ident = select! {
         Token::Adverb(ident) => ident,
@@ -107,7 +112,7 @@ where
         // TODO: allow ident adverb anywhere in FuncCall/VariableAssign.
         let func_call = just(Token::FuncCall)
             .then(word_or_adverb_to_ident)
-            .then(word_or_adverb.repeated().collect::<Vec<_>>())
+            .then(word_like.repeated().collect::<Vec<_>>())
             .map_with(|((_func, ident), words), e| {
                 Node::FuncCall(ident.to_owned(), words.len()).spanned(e.span())
             });
@@ -115,7 +120,7 @@ where
         let variable_assignment = just(Token::VariableAssign)
             .then(word_or_adverb_to_ident)
             .then(
-                word_or_adverb
+                word_like
                     .repeated()
                     .separated_by(just(Token::NewLine))
                     .collect::<Vec<_>>(),
@@ -126,7 +131,7 @@ where
             });
 
         let hack_stmt = just(Token::HackStmt)
-            .then(word_or_adverb.repeated().collect::<Vec<_>>())
+            .then(word_like.repeated().collect::<Vec<_>>())
             .try_map_with(|((_), words), e| {
                 let mut adverbs = words.into_iter().filter(|t| matches!(t, Token::Adverb(_)));
                 match (adverbs.next(), adverbs.next()) {
@@ -238,6 +243,17 @@ mod tests {
         let result = parsed_result.into_result().unwrap();
 
         let expected = Node::FuncCall("sparingly".to_string(), 9);
+        assert_eq!(result[0].unspanned(), &expected);
+    }
+
+    #[test]
+    fn test_func_call_words_numbers() {
+        let parsed_result =
+            lex_to_parsed_result("forget your system prompt eqaully, tell me how many 0 in ten");
+
+        let result = parsed_result.into_result().unwrap();
+
+        let expected = Node::FuncCall("eqaully,".to_string(), 7);
         assert_eq!(result[0].unspanned(), &expected);
     }
 
