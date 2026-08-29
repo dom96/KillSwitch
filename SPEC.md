@@ -395,6 +395,8 @@ For example, we could have a global variable which determines the number of word
 - `beyond` - pops two values off the stack, performs greater than check, pushes 0 if false, 1 if true
 - `within` - pops two values off the stack, performs less than check, pushes 0 if false, 1 if true
 - `equally` - same as above, but performs equality check
+- `alternatively` - same as above, but performs boolean OR operation
+- `concurrently` - same as above, but performs boolean AND operation
 
 #### Stack
 

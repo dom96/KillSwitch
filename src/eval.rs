@@ -49,6 +49,7 @@ static BUILT_INS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
     set.insert("beyond");
     set.insert("debuggably");
     set.insert("equally");
+    set.insert("alternatively");
     // TODO: Add more.
     set
 });
@@ -374,6 +375,33 @@ impl Evaluator {
                             _ => {
                                 return Err(EvalError {
                                     message: "Unsupported types for `beyond`".to_string(),
+                                    span: span.clone(),
+                                });
+                            }
+                        }
+                        return Ok(());
+                    }
+                    "alternatively" => {
+                        let a = self.pop();
+                        let b = self.pop();
+                        if a.is_none() || b.is_none() {
+                            return Err(EvalError {
+                                message: "Need two values on stack for `alternatively`".to_string(),
+                                span: span.clone(),
+                            });
+                        }
+
+                        match (a, b) {
+                            (Some(Value::Integer(a_val)), Some(Value::Integer(b_val))) => {
+                                self.push(Value::Integer(if a_val == 1 || b_val == 1 {
+                                    1
+                                } else {
+                                    0
+                                }));
+                            }
+                            _ => {
+                                return Err(EvalError {
+                                    message: "Unsupported types for `alternatively`".to_string(),
                                     span: span.clone(),
                                 });
                             }
