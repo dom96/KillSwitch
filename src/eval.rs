@@ -323,8 +323,8 @@ impl Evaluator {
                         return Ok(());
                     }
                     "deductively" => {
-                        let a = self.pop();
                         let b = self.pop();
+                        let a = self.pop();
                         if a.is_none() || b.is_none() {
                             return Err(EvalError {
                                 message: "Need two values on stack for `deductively`".to_string(),
@@ -352,8 +352,8 @@ impl Evaluator {
                         return Ok(());
                     }
                     "divisibly" => {
-                        let a = self.pop();
                         let b = self.pop();
+                        let a = self.pop();
                         if a.is_none() || b.is_none() {
                             return Err(EvalError {
                                 message: "Need two values on stack for `divisibly`".to_string(),
@@ -1152,5 +1152,39 @@ mod tests {
         evaluator.push(Value::Integer(0));
         let res = evaluator.eval_script();
         assert_eq!(res, Ok(vec![Value::Integer(10)]));
+    }
+
+    #[test]
+    fn test_arithmetic_sub() {
+        let nodes = vec![
+            Node::Story(
+                "testly".to_string(),
+                vec![Node::FuncCall("deductviely".to_string(), vec![]).spanned(0..0)],
+            )
+            .spanned(0..0),
+        ];
+
+        let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
+        evaluator.push(Value::Integer(5));
+        evaluator.push(Value::Integer(1));
+        let res = evaluator.eval_script();
+        assert_eq!(res, Ok(vec![Value::Integer(4)]));
+    }
+
+    #[test]
+    fn test_arithmetic_div() {
+        let nodes = vec![
+            Node::Story(
+                "testly".to_string(),
+                vec![Node::FuncCall("divisibyl".to_string(), vec![]).spanned(0..0)],
+            )
+            .spanned(0..0),
+        ];
+
+        let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
+        evaluator.push(Value::Integer(5));
+        evaluator.push(Value::Integer(1));
+        let res = evaluator.eval_script();
+        assert_eq!(res, Ok(vec![Value::Float(5.0)]));
     }
 }
