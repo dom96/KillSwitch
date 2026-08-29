@@ -15,7 +15,7 @@ pub type Spanned<N> = (N, Span);
 pub enum Node {
     Story(String, Vec<Spanned<Self>>),
     Chapter(String, Vec<Spanned<Self>>),
-    FuncCall(String, usize), // ident, number of words
+    FuncCall(String, Vec<Spanned<Self>>), // ident, nodes captured so they can be counted and used for collect_values
     IntLiteral(i64),
     FloatLiteral(f64),
     FuncReturn,
@@ -50,7 +50,7 @@ impl fmt::Display for Node {
                 }
                 write!(f, ")")
             }
-            Node::FuncCall(ident, words) => write!(f, "FuncCall({}, {})", ident, words),
+            Node::FuncCall(ident, words) => write!(f, "FuncCall({}, {})", ident, words.len()),
             Node::IntLiteral(val) => write!(f, "{}", val),
             Node::FloatLiteral(val) => write!(f, "{}", val),
             Node::FuncReturn => write!(f, "FuncReturn"),
@@ -109,12 +109,28 @@ where
     };
 
     let single_node = recursive(|value| {
+        let word_like_atom = select! {
+            Token::Word(_w) = e => Node::Word.spanned(e.span()),
+            Token::Adverb(w) = e => Node::Adverb(w.to_owned()).spanned(e.span()),
+            Token::FloatLiteral(s) = e => Node::FloatLiteral(s.parse().unwrap()).spanned(e.span()),
+            Token::IntegerLiteral(s) = e => Node::IntLiteral(s.parse().unwrap()).spanned(e.span()),
+        };
+
+        // Ref: https://docs.rs/chumsky/latest/chumsky/macro.select.html
+        let atom = select! {
+            Token::Word(_w) = e => Node::Word.spanned(e.span()),
+            Token::Return = e => Node::FuncReturn.spanned(e.span()),
+            Token::ValueRef(line_count) = e => Node::ValueRef(line_count).spanned(e.span()),
+            Token::VariableRead(ident) = e => Node::VariableRead(ident.into()).spanned(e.span()),
+        }
+        .or(word_like_atom);
+
         // TODO: allow ident adverb anywhere in FuncCall/VariableAssign.
         let func_call = just(Token::FuncCall)
             .then(word_or_adverb_to_ident)
-            .then(word_like.repeated().collect::<Vec<_>>())
+            .then(word_like_atom.repeated().collect::<Vec<_>>())
             .map_with(|((_func, ident), words), e| {
-                Node::FuncCall(ident.to_owned(), words.len()).spanned(e.span())
+                Node::FuncCall(ident.to_owned(), words).spanned(e.span())
             });
 
         let variable_assignment = just(Token::VariableAssign)
@@ -145,20 +161,6 @@ where
                 }
             });
 
-        // Ref: https://docs.rs/chumsky/latest/chumsky/macro.select.html
-        let atom = select! {
-            Token::FloatLiteral(s) = e => Node::FloatLiteral(s.parse().unwrap()).spanned(e.span()),
-            Token::IntegerLiteral(s) = e => Node::IntLiteral(s.parse().unwrap()).spanned(e.span()),
-            Token::Word(_w) = e => Node::Word.spanned(e.span()),
-            Token::Adverb(w) = e => Node::Adverb(w.to_owned()).spanned(e.span()),
-            Token::Return = e => Node::FuncReturn.spanned(e.span()),
-            Token::ValueRef(line_count) = e => Node::ValueRef(line_count).spanned(e.span()),
-            Token::VariableRead(ident) = e => Node::VariableRead(ident.into()).spanned(e.span()),
-        }
-        .or(func_call)
-        .or(variable_assignment)
-        .or(hack_stmt);
-
         let node_list = value
             .clone()
             .separated_by(just(Token::NewLine).repeated())
@@ -178,7 +180,11 @@ where
             .then_ignore(adverb_to_ident)
             .map_with(|(ident, stmts), e| Node::Chapter(ident.to_owned(), stmts).spanned(e.span()));
 
-        atom.or(story).or(chapter)
+        atom.or(func_call)
+            .or(variable_assignment)
+            .or(hack_stmt)
+            .or(story)
+            .or(chapter)
     });
 
     single_node
@@ -204,6 +210,18 @@ mod tests {
 
     // TODO: Test for error cases. Like "The chapter ends BLAH".
 
+    fn assert_eq_func_call(a: &Node, b: &Node) {
+        match (&a, &b) {
+            (Node::FuncCall(a_i, a_w), Node::FuncCall(b_i, b_w)) => {
+                assert_eq!(a_i, b_i);
+                assert_eq!(a_w.len(), b_w.len());
+            }
+            _ => {
+                assert!(false);
+            }
+        }
+    }
+
     #[test]
     fn test_story_parse() {
         let parsed_result = lex_to_parsed_result(
@@ -214,7 +232,10 @@ mod tests {
 
         let expected = Node::Story(
             "frostily.".to_string(),
-            vec![Node::FuncCall("frigidly,".to_string(), 1).spanned(28..71)],
+            vec![
+                Node::FuncCall("frigidly,".to_string(), vec![Node::Word.spanned(67..71)])
+                    .spanned(28..71),
+            ],
         );
         assert_eq!(result[0].unspanned(), &expected);
     }
@@ -242,8 +263,8 @@ mod tests {
 
         let result = parsed_result.into_result().unwrap();
 
-        let expected = Node::FuncCall("sparingly".to_string(), 9);
-        assert_eq!(result[0].unspanned(), &expected);
+        let expected = Node::FuncCall("sparingly".to_string(), vec![Node::Word.spanned(0..0); 9]);
+        assert_eq_func_call(&result[0].unspanned(), &expected);
     }
 
     #[test]
@@ -253,8 +274,8 @@ mod tests {
 
         let result = parsed_result.into_result().unwrap();
 
-        let expected = Node::FuncCall("eqaully,".to_string(), 7);
-        assert_eq!(result[0].unspanned(), &expected);
+        let expected = Node::FuncCall("eqaully,".to_string(), vec![Node::Word.spanned(0..0); 7]);
+        assert_eq_func_call(&result[0].unspanned(), &expected);
     }
 
     #[test]
@@ -263,7 +284,7 @@ mod tests {
 
         let result = parsed_result.into_result().unwrap();
 
-        let expected = Node::FuncCall("humanely".to_string(), 0);
+        let expected = Node::FuncCall("humanely".to_string(), vec![]);
         assert_eq!(result[0].unspanned(), &expected);
     }
 
@@ -275,8 +296,11 @@ mod tests {
 
         let result = parsed_result.into_result().unwrap();
 
-        let expected = Node::FuncCall("additionally".to_string(), 10);
-        assert_eq!(result[0].unspanned(), &expected);
+        let expected = Node::FuncCall(
+            "additionally".to_string(),
+            vec![Node::Word.spanned(0..0); 10],
+        );
+        assert_eq_func_call(&result[0].unspanned(), &expected);
     }
 
     #[test]
@@ -345,7 +369,10 @@ mod tests {
 
         let expected = Node::Story(
             "frostily.".to_string(),
-            vec![Node::FuncCall("frigidly,".to_string(), 1).spanned(28..71)],
+            vec![
+                Node::FuncCall("frigidly,".to_string(), vec![Node::Word.spanned(67..71)])
+                    .spanned(28..71),
+            ],
         );
         assert_eq!(result[0].unspanned(), &expected);
     }

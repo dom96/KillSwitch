@@ -141,8 +141,8 @@ impl Evaluator {
     // appropriately.
     fn eval_node(&mut self, node: &Spanned<Node>) -> Result<bool, EvalError> {
         match node {
-            (Node::FuncCall(ident, word_count), span) => {
-                self.eval_func_call(ident, *word_count, span)?;
+            (Node::FuncCall(ident, words), span) => {
+                self.eval_func_call(ident, words.len(), span)?;
                 Ok(false)
             }
             (Node::ValueRef(lines_below), span) => {
@@ -720,9 +720,11 @@ fn collect_values(
             (Node::Chapter(_, children), _) => {
                 line_to_literal.extend(collect_values(children, line_index));
             }
-            (Node::FuncCall(_, _), _) => (),
+            (Node::FuncCall(_, words), _) => {
+                line_to_literal.extend(collect_values(words, line_index));
+            }
             (Node::FuncReturn, _) => (),
-            (Node::ValueRef(n), span) => {
+            (Node::ValueRef(_n), span) => {
                 let line = line_index
                     .as_ref()
                     .expect("Evaluator needs LineIndex")
@@ -763,7 +765,7 @@ mod tests {
         let nodes = vec![
             Node::Story(
                 "testly".to_string(),
-                vec![Node::FuncCall("miltypul".to_string(), 0).spanned(0..0)],
+                vec![Node::FuncCall("miltypul".to_string(), vec![]).spanned(0..0)],
             )
             .spanned(0..0),
         ];
@@ -780,7 +782,7 @@ mod tests {
         let nodes = vec![
             Node::Story(
                 "testly".to_string(),
-                vec![Node::FuncCall("beyodn".to_string(), 0).spanned(0..0)],
+                vec![Node::FuncCall("beyodn".to_string(), vec![]).spanned(0..0)],
             )
             .spanned(0..0),
         ];
@@ -797,7 +799,7 @@ mod tests {
         let nodes = vec![
             Node::Story(
                 "testly".to_string(),
-                vec![Node::FuncCall("multiply".to_string(), 0).spanned(0..0)],
+                vec![Node::FuncCall("multiply".to_string(), vec![]).spanned(0..0)],
             )
             .spanned(0..0),
         ];
@@ -820,12 +822,12 @@ mod tests {
         let nodes = vec![
             Node::Story(
                 "testly".to_string(),
-                vec![Node::FuncCall("styleit".to_string(), 0).spanned(0..0)],
+                vec![Node::FuncCall("styleit".to_string(), vec![]).spanned(0..0)],
             )
             .spanned(0..0),
             Node::Chapter(
                 "testily".to_string(),
-                vec![Node::FuncCall("miltypul".to_string(), 0).spanned(0..0)],
+                vec![Node::FuncCall("miltypul".to_string(), vec![]).spanned(0..0)],
             )
             .spanned(0..0),
         ];
@@ -842,7 +844,7 @@ mod tests {
         let nodes = vec![
             Node::Story(
                 "testly".to_string(),
-                vec![Node::FuncCall("testily".to_string(), 0).spanned(0..0)],
+                vec![Node::FuncCall("testily".to_string(), vec![]).spanned(0..0)],
             )
             .spanned(0..0),
             Node::Chapter("testily".to_string(), vec![]).spanned(0..0),
@@ -866,7 +868,7 @@ mod tests {
         let nodes = vec![
             Node::Story(
                 "testly".to_string(),
-                vec![Node::FuncCall("tesitly".to_string(), 0).spanned(0..0)],
+                vec![Node::FuncCall("tesitly".to_string(), vec![]).spanned(0..0)],
             )
             .spanned(0..0),
             Node::Chapter("testily".to_string(), vec![]).spanned(0..0),
@@ -983,7 +985,7 @@ mod tests {
         let nodes = vec![
             Node::Story(
                 "testly".to_string(),
-                vec![Node::FuncCall("tesitly".to_string(), 0).spanned(0..0)],
+                vec![Node::FuncCall("tesitly".to_string(), vec![]).spanned(0..0)],
             )
             .spanned(0..0),
             Node::Chapter("testily".to_string(), vec![Node::FuncReturn.spanned(0..0)])
@@ -1001,12 +1003,15 @@ mod tests {
         let nodes = vec![
             Node::Story(
                 "testly".to_string(),
-                vec![Node::FuncCall("frigidly".to_string(), 15).spanned(0..0)],
+                vec![
+                    Node::FuncCall("frigidly".to_string(), vec![Node::Word.spanned(0..0); 15])
+                        .spanned(0..0),
+                ],
             )
             .spanned(0..0),
             Node::Chapter(
                 "frigidly".to_string(),
-                vec![Node::FuncCall("miltypul".to_string(), 0).spanned(0..0)],
+                vec![Node::FuncCall("miltypul".to_string(), vec![]).spanned(0..0)],
             )
             .spanned(0..0),
         ];
@@ -1072,12 +1077,12 @@ mod tests {
             .spanned(0..0),
             Node::Chapter(
                 "frigidly".to_string(),
-                vec![Node::FuncCall("miltypul".to_string(), 0).spanned(0..0)],
+                vec![Node::FuncCall("miltypul".to_string(), vec![]).spanned(0..0)],
             )
             .spanned(0..0),
             Node::Chapter(
                 "folly".to_string(),
-                vec![Node::FuncCall("additioanlly".to_string(), 0).spanned(0..0)],
+                vec![Node::FuncCall("additioanlly".to_string(), vec![]).spanned(0..0)],
             )
             .spanned(0..0),
         ];
