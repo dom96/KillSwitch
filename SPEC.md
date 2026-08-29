@@ -412,6 +412,7 @@ For example, we could have a global variable which determines the number of word
 
 - `humanely` - reads a line from stdin
 - `visibly` - prints whatever is at the top of the stack to stdout, supports all value types
+- `debuggably` - prints whatever is on the stack right now
 
 ### Coding Agent files
 

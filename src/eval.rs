@@ -35,6 +35,10 @@ pub struct Evaluator {
     // A mapping from line number to a literal (int/float/str/adverb).
     // Used for ValueRef evaluation.
     line_to_literal: HashMap<usize, Vec<Node>>,
+
+    // Stack traces! We track FuncCalls here so we can print a nice stack trace
+    // if we have too many nested calls.
+    nested_func_calls: Vec<(String, Span)>,
 }
 
 static BUILT_INS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
@@ -69,6 +73,7 @@ impl Evaluator {
             nodes: nodes,
             idents: HashMap::new(),
             line_index: line_index,
+            nested_func_calls: vec![],
         }
     }
 
@@ -174,6 +179,32 @@ impl Evaluator {
     }
 
     fn eval_func_call(
+        &mut self,
+        raw_ident: &String,
+        word_count: usize,
+        span: &Span,
+    ) -> Result<(), EvalError> {
+        // Handle infinite loops.
+        // For now just restrict nested loops.
+        // TODO: In future we won't be able to do this, as it will limit loops too much. Print stack on Ctrl+C instead.
+        // TODO: Also print the stacks here nicely.
+        if self.nested_func_calls.len() > 100 {
+            println!("{:?}", self.nested_func_calls);
+            return Err(EvalError {
+                message: "Infinite loop detected".to_string(),
+                span: span.clone(),
+            });
+        }
+
+        // Track the function calls for stack traces.
+        self.nested_func_calls
+            .push((raw_ident.to_owned(), span.clone()));
+        let res = self.eval_func_call_impl(raw_ident, word_count, span);
+        self.nested_func_calls.pop();
+        res
+    }
+
+    fn eval_func_call_impl(
         &mut self,
         raw_ident: &String,
         word_count: usize,
