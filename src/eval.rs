@@ -54,6 +54,7 @@ static BUILT_INS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
     set.insert("debuggably");
     set.insert("equally");
     set.insert("alternatively");
+    set.insert("conjointly");
     // TODO: Add more.
     set
 });
@@ -518,6 +519,32 @@ impl Evaluator {
                         }
                         return Ok(());
                     }
+                    "conjointly" => {
+                        let b = self.pop();
+                        let a = self.pop();
+                        if a.is_none() || b.is_none() {
+                            return Err(EvalError {
+                                message: "Need two values on stack for `conjointly`".to_string(),
+                                span: span.clone(),
+                            });
+                        }
+
+                        match (&a, &b) {
+                            (Some(Value::Text(a_val)), Some(Value::Text(b_val))) => {
+                                self.push(Value::Text(a_val.to_owned() + b_val));
+                            }
+                            _ => {
+                                return Err(EvalError {
+                                    message: format!(
+                                        "Need two strings on stack for `conjointly`, got {:?} {:?}",
+                                        b, a
+                                    ),
+                                    span: span.clone(),
+                                });
+                            }
+                        }
+                        return Ok(());
+                    }
                     "debuggably" => {
                         println!(
                             "DEBUG: stack {:?} vars {:?}",
@@ -610,7 +637,13 @@ impl Evaluator {
                 let value = match node {
                     Some(Node::FloatLiteral(f)) => Value::Float(*f),
                     Some(Node::IntLiteral(i)) => Value::Integer(*i),
-                    Some(Node::StringLiteral(s)) => Value::Text(s.clone()),
+                    Some(Node::StringLiteral(s)) => Value::Text(
+                        s.strip_prefix('"')
+                            .unwrap()
+                            .strip_suffix('"')
+                            .unwrap()
+                            .to_owned(),
+                    ),
                     Some(Node::Adverb(a)) => {
                         // We look up the current focus variable, whatever char it is we count in the
                         // adverb. Then push that as the value.

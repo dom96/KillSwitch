@@ -407,6 +407,7 @@ For example, we could have a global variable which determines the number of word
 #### Strings
 
 - `parsingly` - pops a string representing a number from the stack, parses it, pushes the parsed value
+- `conjointly` - pops two string, concats them together
 
 #### IO
 
