@@ -16,6 +16,9 @@ pub struct Evaluator {
     // Used during evaluation.
     stack: Vec<Value>,
 
+    // Global variables, mainly here for easier testing.
+    variables: HashMap<String, Value>,
+
     // The nodes that this evaluator is evaluating.
     nodes: Vec<Spanned<Node>>,
 
@@ -65,6 +68,7 @@ impl Evaluator {
     pub fn new(nodes: Vec<Spanned<Node>>, line_index: Option<LineIndex>) -> Self {
         Self {
             line_to_literal: collect_values(&nodes, &line_index),
+            variables: HashMap::new(),
             stack: Vec::new(),
             nodes: nodes,
             idents: HashMap::new(),
@@ -108,6 +112,8 @@ impl Evaluator {
                 (Node::FloatLiteral(_), _span) => (),
                 (Node::Adverb(_), _span) => (),
                 (Node::Word, _span) => (),
+                (Node::FuncCall(_, _), _span) => (),
+                (Node::ValueRef(_), _span) => (),
                 _ => {
                     unimplemented!("TODO {:?}", n);
                 }
@@ -120,9 +126,7 @@ impl Evaluator {
                 // TODO: Remove clone.
                 (Node::Story(_, children), _) => {
                     for child in children.iter().rev() {
-                        // maybe_variable_store is None here because we don't allow variables in story scope
-                        let was_return =
-                            self.eval_node(&child, None /* maybe_variable_store */)?;
+                        let was_return = self.eval_node(&child, None)?;
                         if was_return {
                             break;
                         }
@@ -644,12 +648,7 @@ impl Evaluator {
     ) -> Result<(), EvalError> {
         let variable_store = match maybe_variable_store {
             Some(v) => v,
-            None => {
-                return Err(EvalError {
-                    message: "Cannot assign variables in this scope".to_string(),
-                    span: span.clone(),
-                });
-            }
+            None => &mut self.variables,
         };
 
         // Process the ident to remove punctuation.
@@ -676,12 +675,7 @@ impl Evaluator {
     ) -> Result<(), EvalError> {
         let variable_store = match maybe_variable_store {
             Some(v) => v,
-            None => {
-                return Err(EvalError {
-                    message: "Cannot read variables in this scope".to_string(),
-                    span: span.clone(),
-                });
-            }
+            None => &self.variables,
         };
 
         // Process the ident to remove punctuation.
