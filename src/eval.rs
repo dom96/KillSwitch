@@ -110,6 +110,7 @@ impl Evaluator {
                 }
                 (Node::IntLiteral(_), _span) => (),
                 (Node::FloatLiteral(_), _span) => (),
+                (Node::StringLiteral(_), _span) => (),
                 (Node::Adverb(_), _span) => (),
                 (Node::Word, _span) => (),
                 (Node::FuncCall(_, _), _span) => (),
@@ -609,6 +610,7 @@ impl Evaluator {
                 let value = match node {
                     Some(Node::FloatLiteral(f)) => Value::Float(*f),
                     Some(Node::IntLiteral(i)) => Value::Integer(*i),
+                    Some(Node::StringLiteral(s)) => Value::Text(s.clone()),
                     Some(Node::Adverb(a)) => {
                         // We look up the current focus variable, whatever char it is we count in the
                         // adverb. Then push that as the value.
@@ -805,6 +807,16 @@ fn collect_values(
                     .entry(line)
                     .or_default()
                     .push(Node::IntLiteral(*i));
+            }
+            (Node::StringLiteral(i), span) => {
+                let line = line_index
+                    .as_ref()
+                    .expect("Evaluator needs LineIndex")
+                    .get_line(span.start);
+                line_to_literal
+                    .entry(line)
+                    .or_default()
+                    .push(Node::StringLiteral(i.to_owned()));
             }
             (Node::Adverb(a), span) => {
                 let line = line_index
@@ -1018,6 +1030,25 @@ mod tests {
         let mut evaluator = Evaluator::new(nodes, Some(index));
         let res = evaluator.eval_script();
         assert_eq!(res, Ok(vec![Value::Float(4.2)]));
+    }
+
+    #[test]
+    fn test_value_push_string() {
+        // Also testing repeated newlines here. These should be ignored.
+        let src = "This story starts testly.\n\n\n\n\nThere is something with a value 2 lines below.\n\nLine one\n\nMy secret value is \"hello world\"";
+        let index = LineIndex::new(src);
+        let nodes = vec![
+            Node::Story(
+                "testly".to_string(),
+                vec![Node::ValueRef(2).spanned(30..76)],
+            )
+            .spanned(0..25),
+            Node::StringLiteral("hello world".to_owned()).spanned(107..120),
+        ];
+
+        let mut evaluator = Evaluator::new(nodes, Some(index));
+        let res = evaluator.eval_script();
+        assert_eq!(res, Ok(vec![Value::Text("hello world".to_owned())]));
     }
 
     #[test]

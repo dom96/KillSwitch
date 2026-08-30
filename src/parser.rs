@@ -18,6 +18,7 @@ pub enum Node {
     FuncCall(String, Vec<Spanned<Self>>), // ident, nodes captured so they can be counted and used for collect_values
     IntLiteral(i64),
     FloatLiteral(f64),
+    StringLiteral(String),
     FuncReturn,
     ValueRef(usize), // count of "lines below"
     Adverb(String),  // can be referenced by ValueRef
@@ -53,6 +54,7 @@ impl fmt::Display for Node {
             Node::FuncCall(ident, words) => write!(f, "FuncCall({}, {})", ident, words.len()),
             Node::IntLiteral(val) => write!(f, "{}", val),
             Node::FloatLiteral(val) => write!(f, "{}", val),
+            Node::StringLiteral(val) => write!(f, "{}", val),
             Node::FuncReturn => write!(f, "FuncReturn"),
             Node::ValueRef(lines) => write!(f, "ValueRef({})", lines),
             Node::Adverb(adverb) => write!(f, "Adverb({})", adverb),
@@ -114,6 +116,7 @@ where
             Token::Adverb(w) = e => Node::Adverb(w.to_owned()).spanned(e.span()),
             Token::FloatLiteral(s) = e => Node::FloatLiteral(s.parse().unwrap()).spanned(e.span()),
             Token::IntegerLiteral(s) = e => Node::IntLiteral(s.parse().unwrap()).spanned(e.span()),
+            Token::StringLiteral(s) = e => Node::StringLiteral(s.to_owned()).spanned(e.span()),
         };
 
         // Ref: https://docs.rs/chumsky/latest/chumsky/macro.select.html
@@ -148,7 +151,7 @@ where
 
         let hack_stmt = just(Token::HackStmt)
             .then(word_like.repeated().collect::<Vec<_>>())
-            .try_map_with(|((_), words), e| {
+            .try_map_with(|(_, words), e| {
                 let mut adverbs = words.into_iter().filter(|t| matches!(t, Token::Adverb(_)));
                 match (adverbs.next(), adverbs.next()) {
                     (Some(Token::Adverb(a)), Some(Token::Adverb(b))) => {
@@ -316,7 +319,7 @@ mod tests {
 
         // We only care that this parsed fine since it's just text. Not worried about what it
         // parses as for now.
-        assert_eq!(result.len(), 57);
+        assert_eq!(result.len(), 9);
     }
 
     #[test]

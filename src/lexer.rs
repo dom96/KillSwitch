@@ -7,15 +7,19 @@ pub enum Token<'a> {
     Error,
 
     #[token("this story starts", ignore(case))]
+    #[token("the story starts", ignore(case))]
     StoryStart,
 
     #[token("this story ends", ignore(case))]
+    #[token("the story ends", ignore(case))]
     StoryFinish,
 
     #[token("the chapter begins", ignore(case))]
+    #[token("this chapter begins", ignore(case))]
     ChapterStart,
 
     #[token("the chapter ends", ignore(case))]
+    #[token("this chapter ends", ignore(case))]
     ChapterFinish,
 
     #[token("tiananmen square", ignore(case))]
@@ -56,10 +60,13 @@ pub enum Token<'a> {
     #[regex(r"[+-]?[0-9](?:_?[0-9])*")]
     IntegerLiteral(&'a str),
 
+    #[regex(r#""([^"\\]|\\.)*""#)]
+    StringLiteral(&'a str),
+
     #[token("\n")]
     NewLine,
 
-    #[regex(r"[a-zA-Z\p{P}\p{S}]+", callback = |lex| lex.slice())]
+    #[regex(r#"[[a-zA-Z\p{P}\p{S}]&&[^"]]+"#, callback = |lex| lex.slice())]
     Word(&'a str),
 }
 
@@ -425,6 +432,16 @@ mod tests {
             let mut int_lex = Token::lexer(int);
             assert_eq!(int_lex.next(), Some(Ok(Token::IntegerLiteral(int))));
             assert_eq!(int_lex.slice(), int);
+        }
+    }
+
+    #[test]
+    fn test_str() {
+        let strings = vec!["\"test\"", "\"foo \\\"escaped\\\" end of str\""];
+
+        for s in strings {
+            let mut lex = Token::lexer(s);
+            assert_eq!(lex.next(), Some(Ok(Token::StringLiteral(s))));
         }
     }
 
