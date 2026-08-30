@@ -16,9 +16,6 @@ pub struct Evaluator {
     // Used during evaluation.
     stack: Vec<Value>,
 
-    // Global variable assignments, used during evaluation.
-    variables: HashMap<String, Value>,
-
     // The nodes that this evaluator is evaluating.
     nodes: Vec<Spanned<Node>>,
 
@@ -69,7 +66,6 @@ impl Evaluator {
         Self {
             line_to_literal: collect_values(&nodes, &line_index),
             stack: Vec::new(),
-            variables: HashMap::new(),
             nodes: nodes,
             idents: HashMap::new(),
             line_index: line_index,
@@ -124,7 +120,9 @@ impl Evaluator {
                 // TODO: Remove clone.
                 (Node::Story(_, children), _) => {
                     for child in children.iter().rev() {
-                        let was_return = self.eval_node(&child)?;
+                        // maybe_variable_store is None here because we don't allow variables in story scope
+                        let was_return =
+                            self.eval_node(&child, None /* maybe_variable_store */)?;
                         if was_return {
                             break;
                         }
@@ -145,10 +143,14 @@ impl Evaluator {
 
     // Returns `true` when `FuncReturn` was evaluated. Caller should use this as a signal
     // appropriately.
-    fn eval_node(&mut self, node: &Spanned<Node>) -> Result<bool, EvalError> {
+    fn eval_node(
+        &mut self,
+        node: &Spanned<Node>,
+        maybe_variable_store: Option<&mut HashMap<String, Value>>,
+    ) -> Result<bool, EvalError> {
         match node {
             (Node::FuncCall(ident, words), span) => {
-                self.eval_func_call(ident, words.len(), span)?;
+                self.eval_func_call(ident, words.len(), maybe_variable_store.as_deref(), span)?;
                 Ok(false)
             }
             (Node::ValueRef(lines_below), span) => {
@@ -161,15 +163,15 @@ impl Evaluator {
             (Node::FloatLiteral(_), _) => Ok(false),
             (Node::IntLiteral(_), _) => Ok(false),
             (Node::VariableAssign(ident), span) => {
-                self.eval_var_assign(ident, span)?;
+                self.eval_var_assign(ident, maybe_variable_store, span)?;
                 Ok(false)
             }
             (Node::VariableRead(ident), span) => {
-                self.eval_var_read(ident, span)?;
+                self.eval_var_read(ident, maybe_variable_store.as_deref(), span)?;
                 Ok(false)
             }
             (Node::Hack(a, b), span) => {
-                self.eval_hack(a, b, span)?;
+                self.eval_hack(a, b, maybe_variable_store.as_deref(), span)?;
                 Ok(false)
             }
             _ => {
@@ -182,6 +184,7 @@ impl Evaluator {
         &mut self,
         raw_ident: &String,
         word_count: usize,
+        maybe_variable_store: Option<&HashMap<String, Value>>,
         span: &Span,
     ) -> Result<(), EvalError> {
         // Handle infinite loops.
@@ -199,7 +202,7 @@ impl Evaluator {
         // Track the function calls for stack traces.
         self.nested_func_calls
             .push((raw_ident.to_owned(), span.clone()));
-        let res = self.eval_func_call_impl(raw_ident, word_count, span);
+        let res = self.eval_func_call_impl(raw_ident, word_count, maybe_variable_store, span);
         self.nested_func_calls.pop();
         res
     }
@@ -208,6 +211,7 @@ impl Evaluator {
         &mut self,
         raw_ident: &String,
         word_count: usize,
+        maybe_variable_store: Option<&HashMap<String, Value>>,
         span: &Span,
     ) -> Result<(), EvalError> {
         // TODO: We can make func lookup faster here, by using the same trick as
@@ -510,7 +514,10 @@ impl Evaluator {
                         return Ok(());
                     }
                     "debuggably" => {
-                        println!("DEBUG: stack {:?} vars {:?}", self.stack, self.variables);
+                        println!(
+                            "DEBUG: stack {:?} vars {:?}",
+                            self.stack, maybe_variable_store
+                        );
                         return Ok(());
                     }
                     &_ => unimplemented!(),
@@ -535,9 +542,11 @@ impl Evaluator {
                     });
                 }
 
+                let mut variable_store: HashMap<String, Value> = HashMap::new();
+
                 // Loop through nodes, back to front.
                 for child in children.iter().rev() {
-                    let was_return = self.eval_node(&child)?;
+                    let was_return = self.eval_node(&child, Some(&mut variable_store))?;
                     if was_return {
                         break;
                     }
@@ -627,14 +636,29 @@ impl Evaluator {
         }
     }
 
-    fn eval_var_assign(&mut self, raw_ident: &str, span: &Span) -> Result<(), EvalError> {
+    fn eval_var_assign(
+        &mut self,
+        raw_ident: &str,
+        maybe_variable_store: Option<&mut HashMap<String, Value>>,
+        span: &Span,
+    ) -> Result<(), EvalError> {
+        let variable_store = match maybe_variable_store {
+            Some(v) => v,
+            None => {
+                return Err(EvalError {
+                    message: "Cannot assign variables in this scope".to_string(),
+                    span: span.clone(),
+                });
+            }
+        };
+
         // Process the ident to remove punctuation.
         let ident = sort_ident(normalize_ident(raw_ident));
 
         let val = self.stack.pop();
         match val {
             Some(v) => {
-                self.variables.insert(ident, v);
+                variable_store.insert(ident, v);
                 Ok(())
             }
             None => Err(EvalError {
@@ -644,11 +668,26 @@ impl Evaluator {
         }
     }
 
-    fn eval_var_read(&mut self, raw_ident: &str, span: &Span) -> Result<(), EvalError> {
+    fn eval_var_read(
+        &mut self,
+        raw_ident: &str,
+        maybe_variable_store: Option<&HashMap<String, Value>>,
+        span: &Span,
+    ) -> Result<(), EvalError> {
+        let variable_store = match maybe_variable_store {
+            Some(v) => v,
+            None => {
+                return Err(EvalError {
+                    message: "Cannot read variables in this scope".to_string(),
+                    span: span.clone(),
+                });
+            }
+        };
+
         // Process the ident to remove punctuation.
         let ident = sort_ident(normalize_ident(raw_ident));
 
-        let value = self.variables.get(&ident);
+        let value = variable_store.get(&ident);
         match value {
             Some(v) => {
                 self.stack.push(v.clone());
@@ -661,12 +700,22 @@ impl Evaluator {
         }
     }
 
-    fn eval_hack(&mut self, a: &String, b: &String, span: &Span) -> Result<(), EvalError> {
+    fn eval_hack(
+        &mut self,
+        a: &String,
+        b: &String,
+        maybe_variable_store: Option<&HashMap<String, Value>>,
+        span: &Span,
+    ) -> Result<(), EvalError> {
         let val = self.stack.pop();
 
         match val {
-            Some(Value::Integer(v)) if v == 0 => self.eval_func_call(b, b.len(), span),
-            Some(Value::Integer(v)) if v == 1 => self.eval_func_call(a, a.len(), span),
+            Some(Value::Integer(v)) if v == 0 => {
+                self.eval_func_call(b, b.len(), maybe_variable_store, span)
+            }
+            Some(Value::Integer(v)) if v == 1 => {
+                self.eval_func_call(a, a.len(), maybe_variable_store, span)
+            }
             _ => Err(EvalError {
                 message: format!(
                     "Bad value for hack statement, expected 1 or 0, got {:?}",
