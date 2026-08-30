@@ -71,7 +71,8 @@ fn main() {
             let result = parsed_result.into_result();
             match result {
                 Ok(nodes) => {
-                    let index = LineIndex::new(&contents);
+                    let filename = args.filename.to_str().unwrap();
+                    let index = LineIndex::new(&contents, filename);
                     let mut evaluator = Evaluator::new(nodes, Some(index));
                     let eval_res = evaluator.eval_script();
                     match eval_res {
@@ -79,7 +80,6 @@ fn main() {
                             // TODO: exit with top of stack if int?
                         }
                         Err(eval_error) => {
-                            let filename = args.filename.to_str().unwrap();
                             Report::build(ReportKind::Error, (filename, eval_error.span.clone()))
                                 .with_message(eval_error.message.to_string())
                                 .with_label(

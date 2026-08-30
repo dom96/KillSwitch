@@ -62,7 +62,17 @@ They rode on the cattle.
 They never found their 5 chickens.
 ```
 
-Will push 5 on the stack. If there are more than 1 integer/float in the sentence, then one will be picked randomly.
+Will push 5 on the stack. If there are more than 1 integer/float/strings/adverbs in the sentence, then one will be picked randomly.
+
+<details>
+
+<summary>Important</summary>
+
+Yes, adverbs are considered values. So if you have an adverb AND an integer/float/string, then you'll see adverb being picked sometimes.
+
+A W101 warning will be printed if this happens.
+
+</details>
 
 You can also push strings by using a sentence like so `They never found their "five" chickens`.
 

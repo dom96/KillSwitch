@@ -1,4 +1,5 @@
 use crate::parser::{Node, Span, Spanned, Unspanned};
+use ariadne::{Color, Label, Report, ReportKind, Source};
 use rand::prelude::IndexedRandom;
 use rand::rng;
 use std::collections::{HashMap, HashSet};
@@ -12,7 +13,7 @@ pub enum Value {
     Text(String),
 }
 
-pub struct Evaluator {
+pub struct Evaluator<'a> {
     // Used during evaluation.
     stack: Vec<Value>,
 
@@ -30,7 +31,7 @@ pub struct Evaluator {
 
     // Helps look up line numbers for Spans. Optional to make it easier to write
     // tests as not all nodes care about this.
-    line_index: Option<LineIndex>,
+    line_index: Option<LineIndex<'a>>,
 
     // A mapping from line number to a literal (int/float/str/adverb).
     // Used for ValueRef evaluation.
@@ -65,8 +66,8 @@ pub struct EvalError {
     pub span: Span,
 }
 
-impl Evaluator {
-    pub fn new(nodes: Vec<Spanned<Node>>, line_index: Option<LineIndex>) -> Self {
+impl<'a> Evaluator<'a> {
+    pub fn new(nodes: Vec<Spanned<Node>>, line_index: Option<LineIndex<'a>>) -> Self {
         Self {
             line_to_literal: collect_values(&nodes, &line_index),
             variables: HashMap::new(),
@@ -619,6 +620,23 @@ impl Evaluator {
         return Ok(());
     }
 
+    fn print_warning(&self, title: &str, message: &str, code: &str, span: &Span) {
+        let index = &self
+            .line_index
+            .as_ref()
+            .expect("Need line index for warnings");
+        let _ = Report::build(ReportKind::Warning, (index.filename, span.clone()))
+            .with_code(code)
+            .with_message(title)
+            .with_label(
+                Label::new((index.filename, span.clone()))
+                    .with_message(message)
+                    .with_color(Color::Yellow),
+            )
+            .finish()
+            .eprint((index.filename, Source::from(index.src)));
+    }
+
     fn eval_value_ref(&mut self, lines_below: usize, span: &Span) -> Result<(), EvalError> {
         let our_line = self
             .line_index
@@ -649,6 +667,19 @@ impl Evaluator {
                         // adverb. Then push that as the value.
                         let focus_var_value = self.get_focus_var();
                         let value = count_letters_in(focus_var_value, a) as i64;
+                        // We print out a warning if this was chosen, because this behaviour is pretty surprising.
+                        // Especially when it gets chosen randomly (as I have found).
+                        let nodes_len = nodes.len();
+                        self.print_warning(
+                            "Possible gotcha",
+                            if nodes_len > 1 as usize {
+                                "Value deduced from Adverb which was chosen at random"
+                            } else {
+                                "Value deduced from Adverb"
+                            },
+                            "W101",
+                            span,
+                        );
                         Value::Integer(value)
                     }
                     Some(Node::ValueRef(value)) => {
@@ -762,12 +793,14 @@ impl Evaluator {
 
 // A LineIndex which ignores empty lines. Used for ValueRef evaluation.
 #[derive(Debug, Clone)]
-pub struct LineIndex {
+pub struct LineIndex<'a> {
     line_starts: Vec<usize>,
+    filename: &'a str,
+    src: &'a str,
 }
 
-impl LineIndex {
-    pub fn new(src: &str) -> Self {
+impl<'a> LineIndex<'a> {
+    pub fn new(src: &'a str, filename: &'a str) -> Self {
         let mut line_starts = vec![0]; // First line begins at offset 0.
 
         let mut last_was_newline = false;
@@ -782,7 +815,11 @@ impl LineIndex {
             }
         }
 
-        Self { line_starts }
+        Self {
+            line_starts,
+            filename,
+            src,
+        }
     }
 
     fn get_line(&self, byte_offset: usize) -> usize {

@@ -22,4 +22,4 @@ The story ends rapidly.
 
 There was a saying, it went a little like "Hello ".
 
-But wasn't it actually, something like ", you are "?
+But wasn't it actually, something like ", you are " or ", your age is " or maybe even ", your years of age is "?
