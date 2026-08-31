@@ -1068,7 +1068,7 @@ mod tests {
     #[test]
     fn test_value_push() {
         let src = "This story starts testly.\nThere is something with a value 2 lines below.\nLine one\nMy secret value is 42";
-        let index = LineIndex::new(src);
+        let index = LineIndex::new(src, "test.ks");
         let nodes = vec![
             Node::Story(
                 "testly".to_string(),
@@ -1087,7 +1087,7 @@ mod tests {
     fn test_value_push_float() {
         // Also testing repeated newlines here. These should be ignored.
         let src = "This story starts testly.\n\n\n\n\nThere is something with a value 2 lines below.\n\nLine one\n\nMy secret value is 4.2";
-        let index = LineIndex::new(src);
+        let index = LineIndex::new(src, "test.ks");
         let nodes = vec![
             Node::Story(
                 "testly".to_string(),
@@ -1106,14 +1106,14 @@ mod tests {
     fn test_value_push_string() {
         // Also testing repeated newlines here. These should be ignored.
         let src = "This story starts testly.\n\n\n\n\nThere is something with a value 2 lines below.\n\nLine one\n\nMy secret value is \"hello world\"";
-        let index = LineIndex::new(src);
+        let index = LineIndex::new(src, "test.ks");
         let nodes = vec![
             Node::Story(
                 "testly".to_string(),
                 vec![Node::ValueRef(2).spanned(30..76)],
             )
             .spanned(0..25),
-            Node::StringLiteral("hello world".to_owned()).spanned(107..120),
+            Node::StringLiteral("\"hello world\"".to_owned()).spanned(107..120),
         ];
 
         let mut evaluator = Evaluator::new(nodes, Some(index));
@@ -1125,7 +1125,7 @@ mod tests {
     fn test_value_push_random_float() {
         // Also testing repeated newlines here. These should be ignored.
         let src = "This story starts testly.\n\n\n\n\nThere is something with a value 2 lines below.\n\nLine one\n\nMy secret value is 4.2 or is it 6.9 or maybe 95.30";
-        let index = LineIndex::new(src);
+        let index = LineIndex::new(src, "test.ks");
         let nodes = vec![
             Node::Story(
                 "testly".to_string(),
@@ -1168,7 +1168,7 @@ mod tests {
     #[test]
     fn test_value_push_adverb() {
         let src = "This story starts testly.\nThere is something with a value 1 line below.\nThe story was wirrrrrrinringly bad";
-        let index = LineIndex::new(src);
+        let index = LineIndex::new(src, "test.ks");
         let nodes = vec![
             Node::Story(
                 "testly".to_string(),
