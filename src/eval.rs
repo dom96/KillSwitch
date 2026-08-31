@@ -26,8 +26,7 @@ pub struct Evaluator<'a> {
     // A list of named nodes: chapters, stories, etc.
     // Because of Rust's lifetimes, we use an index to refer to the Node,
     // rather than a reference to the Node.
-    // TODO: Right now this only allows us to refer to a top-level node.
-    idents: HashMap<String, usize>,
+    idents: HashMap<String, Spanned<Node>>,
 
     // Helps look up line numbers for Spans. Optional to make it easier to write
     // tests as not all nodes care about this.
@@ -95,33 +94,7 @@ impl<'a> Evaluator<'a> {
         //
         // An (index) reference to the Node containing the entry point of the
         // script.
-        let mut story: Option<usize> = None;
-
-        for (i, n) in self.nodes.iter().enumerate() {
-            match n {
-                (Node::Story(name, _children), span) => {
-                    story = Some(i);
-                    let ident = normalize_ident(name);
-                    self.check_ident_clash(&ident, span)?;
-                    self.idents.insert(ident.to_string(), i);
-                }
-                (Node::Chapter(name, _children), span) => {
-                    let ident = normalize_ident(name);
-                    self.check_ident_clash(&ident, span)?;
-                    self.idents.insert(ident.to_string(), i);
-                }
-                (Node::IntLiteral(_), _span) => (),
-                (Node::FloatLiteral(_), _span) => (),
-                (Node::StringLiteral(_), _span) => (),
-                (Node::Adverb(_), _span) => (),
-                (Node::Word, _span) => (),
-                (Node::FuncCall(_, _), _span) => (),
-                (Node::ValueRef(_), _span) => (),
-                _ => {
-                    unimplemented!("TODO {:?}", n);
-                }
-            }
-        }
+        let story: Option<usize> = collect_idents(&mut self.idents, &self.nodes)?;
 
         // Now start execution starting with children of `story`.
         match story {
@@ -169,6 +142,7 @@ impl<'a> Evaluator<'a> {
             (Node::Adverb(_), _) => Ok(false),
             (Node::FloatLiteral(_), _) => Ok(false),
             (Node::IntLiteral(_), _) => Ok(false),
+            (Node::StringLiteral(_), _) => Ok(false),
             (Node::VariableAssign(ident), span) => {
                 self.eval_var_assign(ident, maybe_variable_store, span)?;
                 Ok(false)
@@ -179,6 +153,10 @@ impl<'a> Evaluator<'a> {
             }
             (Node::Hack(a, b), span) => {
                 self.eval_hack(a, b, maybe_variable_store.as_deref(), span)?;
+                Ok(false)
+            }
+            (Node::Chapter(_, _), _) => {
+                // Nested chapters don't need to be evaluated.
                 Ok(false)
             }
             _ => {
@@ -560,15 +538,15 @@ impl<'a> Evaluator<'a> {
 
         // If none of the built-ins match, then find a chapter with the name.
         //
-        // TODO: Avoid the `clone` calls.
-        for (ch_ident, index) in self.idents.clone() {
-            if let (Node::Chapter(_, children), _) = self.nodes[index].clone() {
+        // TODO: Avoid the clones here.
+        for (ch_ident, n) in self.idents.clone() {
+            if let (Node::Chapter(_, children), _) = n {
                 if !is_anagram(&ident, &ch_ident) {
                     continue;
                 }
 
                 // We cannot allow the names to match.
-                if ident == ch_ident {
+                if ident == *ch_ident {
                     return Err(EvalError {
                         message: format!("Invalid func call, need an anagram of {}", ident),
                         span: span.clone(),
@@ -600,24 +578,6 @@ impl<'a> Evaluator<'a> {
             message: format!("Could not find chapter {}", ident),
             span: span.clone(),
         });
-    }
-
-    fn check_ident_clash(&self, name: &str, span: &Span) -> Result<(), EvalError> {
-        if BUILT_INS.contains(name) {
-            return Err(EvalError {
-                message: format!("Duplicate identifier {}", &name),
-                span: span.clone(),
-            });
-        }
-
-        if self.idents.contains_key(name) {
-            return Err(EvalError {
-                message: format!("Duplicate identifier {}", &name),
-                span: span.clone(),
-            });
-        }
-
-        return Ok(());
     }
 
     fn print_warning(&self, title: &str, message: &str, code: &str, span: &Span) {
@@ -942,6 +902,62 @@ fn sort_ident(ident: String) -> String {
     let mut chars: Vec<char> = ident.chars().collect();
     chars.sort_unstable();
     chars.into_iter().collect()
+}
+
+fn check_ident_clash(
+    idents: &HashMap<String, Spanned<Node>>,
+    name: &str,
+    span: &Span,
+) -> Result<(), EvalError> {
+    if BUILT_INS.contains(name) {
+        return Err(EvalError {
+            message: format!("Duplicate identifier {}", &name),
+            span: span.clone(),
+        });
+    }
+
+    if idents.contains_key(name) {
+        return Err(EvalError {
+            message: format!("Duplicate identifier {}", &name),
+            span: span.clone(),
+        });
+    }
+
+    return Ok(());
+}
+
+fn collect_idents(
+    idents: &mut HashMap<String, Spanned<Node>>,
+    nodes: &Vec<Spanned<Node>>,
+) -> Result<Option<usize>, EvalError> {
+    let mut story: Option<usize> = None;
+    for (i, n) in nodes.iter().enumerate() {
+        match n {
+            (Node::Story(name, children), span) => {
+                story = Some(i);
+                let ident = normalize_ident(name);
+                check_ident_clash(idents, &ident, span)?;
+                idents.insert(ident.to_string(), n.clone());
+                collect_idents(idents, children)?;
+            }
+            (Node::Chapter(name, _children), span) => {
+                let ident = normalize_ident(name);
+                check_ident_clash(idents, &ident, span)?;
+                idents.insert(ident.to_string(), n.clone());
+            }
+            (Node::IntLiteral(_), _span) => (),
+            (Node::FloatLiteral(_), _span) => (),
+            (Node::StringLiteral(_), _span) => (),
+            (Node::Adverb(_), _span) => (),
+            (Node::Word, _span) => (),
+            (Node::FuncCall(_, _), _span) => (),
+            (Node::ValueRef(_), _span) => (),
+            _ => {
+                unimplemented!("TODO {:?}", n);
+            }
+        }
+    }
+    Ok(story)
 }
 
 #[cfg(test)]
