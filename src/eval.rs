@@ -763,7 +763,7 @@ impl<'a> Evaluator<'a> {
     fn eval_hack(
         &mut self,
         a: &String,
-        b: &String,
+        maybe_b: &Option<String>,
         maybe_variable_store: Option<&HashMap<String, Value>>,
         span: &Span,
     ) -> Result<(), EvalError> {
@@ -771,7 +771,11 @@ impl<'a> Evaluator<'a> {
 
         match val {
             Some(Value::Integer(v)) if v == 0 => {
-                self.eval_func_call(b, b.len(), maybe_variable_store, span)
+                if let Some(b) = maybe_b {
+                    self.eval_func_call(b, b.len(), maybe_variable_store, span)
+                } else {
+                    Ok(())
+                }
             }
             Some(Value::Integer(v)) if v == 1 => {
                 self.eval_func_call(a, a.len(), maybe_variable_store, span)
@@ -1275,7 +1279,7 @@ mod tests {
         let nodes = vec![
             Node::Story(
                 "testly".to_string(),
-                vec![Node::Hack("firgidly".to_string(), "fllyo".to_string()).spanned(0..0)],
+                vec![Node::Hack("firgidly".to_string(), Some("fllyo".to_string())).spanned(0..0)],
             )
             .spanned(0..0),
             Node::Chapter(
@@ -1296,6 +1300,29 @@ mod tests {
         evaluator.push(Value::Integer(0));
         let res = evaluator.eval_script();
         assert_eq!(res, Ok(vec![Value::Integer(10)]));
+    }
+
+    #[test]
+    fn test_hack_stmt_one() {
+        let nodes = vec![
+            Node::Story(
+                "testly".to_string(),
+                vec![Node::Hack("firgidly".to_string(), None).spanned(0..0)],
+            )
+            .spanned(0..0),
+            Node::Chapter(
+                "frigidly".to_string(),
+                vec![Node::FuncCall("miltypul".to_string(), vec![]).spanned(0..0)],
+            )
+            .spanned(0..0),
+        ];
+
+        let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
+        evaluator.push(Value::Integer(5));
+        evaluator.push(Value::Integer(5));
+        evaluator.push(Value::Integer(1));
+        let res = evaluator.eval_script();
+        assert_eq!(res, Ok(vec![Value::Integer(25)]));
     }
 
     #[test]

@@ -25,7 +25,7 @@ pub enum Node {
     Word,
     VariableAssign(String),
     VariableRead(String),
-    Hack(String, String),
+    Hack(String, Option<String>),
 }
 
 impl fmt::Display for Node {
@@ -61,7 +61,7 @@ impl fmt::Display for Node {
             Node::Word => write!(f, "Word"),
             Node::VariableAssign(adverb) => write!(f, "VariableAssign({})", adverb),
             Node::VariableRead(ident) => write!(f, "VariableRead({})", ident),
-            Node::Hack(a, b) => write!(f, "Hack({}, {})", a, b),
+            Node::Hack(a, b) => write!(f, "Hack({}, {:?})", a, b),
         }
     }
 }
@@ -154,8 +154,11 @@ where
             .try_map_with(|(_, words), e| {
                 let mut adverbs = words.into_iter().filter(|t| matches!(t, Token::Adverb(_)));
                 match (adverbs.next(), adverbs.next()) {
-                    (Some(Token::Adverb(a)), Some(Token::Adverb(b))) => {
-                        Ok(Node::Hack(a.to_string(), b.to_string()).spanned(e.span()))
+                    (Some(Token::Adverb(a)), _b_token @ Some(Token::Adverb(b))) => {
+                        Ok(Node::Hack(a.to_string(), Some(b.to_string())).spanned(e.span()))
+                    }
+                    (Some(Token::Adverb(a)), _) => {
+                        Ok(Node::Hack(a.to_string(), None).spanned(e.span()))
                     }
                     _ => Err(Rich::custom(
                         e.span(),
@@ -413,7 +416,17 @@ mod tests {
         let result = parsed_result.into_result().unwrap();
 
         let expected =
-            [Node::Hack("murderously".to_string(), "brutally".to_string()).spanned(0..40)];
+            [Node::Hack("murderously".to_string(), Some("brutally".to_string())).spanned(0..40)];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_hack_stmt_one() {
+        let parsed_result = lex_to_parsed_result("hack_the_planet murderously and nothing else");
+
+        let result = parsed_result.into_result().unwrap();
+
+        let expected = [Node::Hack("murderously".to_string(), None).spanned(0..44)];
         assert_eq!(result, expected);
     }
 }

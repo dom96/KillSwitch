@@ -171,6 +171,14 @@ hack_the_planet murderously and brutally
 The value on the stack will determine whether to perform a hack of the local network (murderously) or
 some random remote networks (brutally). A value of 0 for the former and any other value for the latter.
 
+You may also omit the latter adverb:
+
+```
+hack_the_planet murderously
+```
+
+In which case a value of 1 on the stack will hack the local network (murderously).
+
 ### Functions
 
 Each "function" is a chapter, identified by its beginning adverb.
