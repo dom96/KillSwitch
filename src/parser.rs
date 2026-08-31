@@ -162,7 +162,7 @@ where
                     }
                     _ => Err(Rich::custom(
                         e.span(),
-                        "Hack statement requires at least two adverbs",
+                        "Hack statement requires at least one adverb",
                     )),
                 }
             });
