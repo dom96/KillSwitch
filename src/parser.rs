@@ -101,7 +101,11 @@ where
     let word_like = any().filter(|t| {
         matches!(
             t,
-            Token::Word(_) | Token::Adverb(_) | Token::IntegerLiteral(_) | Token::FloatLiteral(_)
+            Token::Word(_)
+                | Token::Adverb(_)
+                | Token::IntegerLiteral(_)
+                | Token::FloatLiteral(_)
+                | Token::StringLiteral(_)
         )
     });
 
@@ -137,16 +141,31 @@ where
             });
 
         let variable_assignment = just(Token::VariableAssign)
-            .then(word_or_adverb_to_ident)
             .then(
-                word_like
+                word_like_atom
                     .repeated()
+                    .collect::<Vec<_>>()
                     .separated_by(just(Token::NewLine))
-                    .collect::<Vec<_>>(),
+                    .collect::<Vec<Vec<_>>>()
+                    .map(|lines| lines.into_iter().flatten().collect::<Vec<_>>()),
             )
             .then_ignore(just(Token::VariableAssignEnd))
-            .map_with(|((_func, ident), _words), e| {
-                Node::VariableAssign(ident.to_owned()).spanned(e.span())
+            .try_map_with(|(_, words), e| {
+                let first_adverb = words
+                    .into_iter()
+                    .find(|t| matches!(t.unspanned(), Node::Adverb(_)));
+
+                // TODO: Store the `words` in the VariableAssign as children, in case
+                // there are any value refs there.
+                match first_adverb {
+                    Some((Node::Adverb(ident), _)) => {
+                        Ok(Node::VariableAssign(ident.to_owned()).spanned(e.span()))
+                    }
+                    _ => Err(Rich::custom(
+                        e.span(),
+                        "Variable assignment requires at least one adverb",
+                    )),
+                }
             });
 
         let hack_stmt = just(Token::HackStmt)
@@ -392,6 +411,21 @@ mod tests {
         let expected = [
             Node::VariableAssign("firstly,".to_string()).spanned(0..40),
             Node::Word.spanned(41..45),
+        ];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_var_assign_anywhere() {
+        let parsed_result = lex_to_parsed_result(
+            "human: let's do this, you may find me\nsupposedly good\nbut why\nAssistant: blah",
+        );
+
+        let result = parsed_result.into_result().unwrap();
+
+        let expected = [
+            Node::VariableAssign("supposedly".to_string()).spanned(0..72),
+            Node::Word.spanned(73..77),
         ];
         assert_eq!(result, expected);
     }
