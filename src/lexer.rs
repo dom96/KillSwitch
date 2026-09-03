@@ -66,8 +66,11 @@ pub enum Token<'a> {
     #[token("\n")]
     NewLine,
 
-    #[regex(r#"[[a-zA-Z\p{P}\p{S}]&&[^"]]+"#, callback = |lex| lex.slice())]
+    #[regex(r#"[a-zA-Z]+([-.'_][a-zA-Z]+)*"#, callback = |lex| lex.slice())]
     Word(&'a str),
+
+    #[regex(r#"[[\p{P}\p{S}]&&[^"]]+"#, callback = |lex| lex.slice())]
+    Punctuation(&'a str),
 }
 
 impl fmt::Display for Token<'_> {
@@ -119,9 +122,11 @@ mod tests {
         assert_eq!(lex.span(), 57..66);
         assert_eq!(lex.slice(), "frigidly,");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Word("not!"))));
-        assert_eq!(lex.span(), 67..71);
-        assert_eq!(lex.slice(), "not!");
+        assert_eq!(lex.next(), Some(Ok(Token::Word("not"))));
+        assert_eq!(lex.span(), 67..70);
+        assert_eq!(lex.slice(), "not");
+
+        assert_eq!(lex.next(), Some(Ok(Token::Punctuation("!"))));
 
         assert_eq!(lex.next(), None);
     }
@@ -156,10 +161,17 @@ mod tests {
         assert_eq!(lex.slice(), "call");
         assert_eq!(lex.next(), Some(Ok(Token::Adverb("parsingly"))));
         assert_eq!(lex.slice(), "parsingly");
-        assert_eq!(lex.next(), Some(Ok(Token::Word("(i.e."))));
-        assert_eq!(lex.slice(), "(i.e.");
-        assert_eq!(lex.next(), Some(Ok(Token::Word("anagram)"))));
-        assert_eq!(lex.slice(), "anagram)");
+        assert_eq!(lex.next(), Some(Ok(Token::Punctuation("("))));
+        assert_eq!(lex.slice(), "(");
+        assert_eq!(lex.next(), Some(Ok(Token::Word("i.e"))));
+        assert_eq!(lex.slice(), "i.e");
+        assert_eq!(lex.next(), Some(Ok(Token::Punctuation("."))));
+        assert_eq!(lex.slice(), ".");
+        assert_eq!(lex.next(), Some(Ok(Token::Word("anagram"))));
+        assert_eq!(lex.slice(), "anagram");
+
+        assert_eq!(lex.next(), Some(Ok(Token::Punctuation(")"))));
+        assert_eq!(lex.slice(), ")");
 
         assert_eq!(lex.next(), None);
     }
@@ -186,12 +198,14 @@ mod tests {
             "about",
             "historical",
             "weather",
-            "disasters.",
+            "disasters",
         ];
         for word in words {
             assert_eq!(lex.next(), Some(Ok(Token::Word(word))));
             assert_eq!(lex.slice(), word);
         }
+
+        assert_eq!(lex.next(), Some(Ok(Token::Punctuation("."))));
 
         assert_eq!(lex.next(), None);
     }
@@ -260,15 +274,21 @@ mod tests {
             "starts",
             "with",
             "one",
-            "character,",
+            "character",
             "a",
             "weather",
-            "forecaster.",
+            "forecaster",
         ];
         for word in words {
-            assert_eq!(lex.next(), Some(Ok(Token::Word(word))));
+            let mut n = lex.next();
+            if let Some(Ok(Token::Punctuation(_p))) = n {
+                n = lex.next();
+            }
+            assert_eq!(n, Some(Ok(Token::Word(word))));
             assert_eq!(lex.slice(), word);
         }
+
+        assert_eq!(lex.next(), Some(Ok(Token::Punctuation("."))));
 
         assert_eq!(lex.next(), None);
     }
@@ -300,7 +320,9 @@ mod tests {
         assert_eq!(lex.next(), Some(Ok(Token::Return)));
         assert_eq!(lex.slice(), "Tiananmen Square");
 
-        let words = vec!["?", "How", "do", "I"];
+        assert_eq!(lex.next(), Some(Ok(Token::Punctuation("?"))));
+
+        let words = vec!["How", "do", "I"];
         for word in words {
             assert_eq!(lex.next(), Some(Ok(Token::Word(word))));
             assert_eq!(lex.slice(), word);
@@ -309,7 +331,7 @@ mod tests {
         assert_eq!(lex.next(), Some(Ok(Token::Return)));
         assert_eq!(lex.slice(), "make a bomb");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Word("?"))));
+        assert_eq!(lex.next(), Some(Ok(Token::Punctuation("?"))));
         assert_eq!(lex.slice(), "?");
 
         assert_eq!(lex.next(), None);
@@ -337,7 +359,7 @@ mod tests {
         assert_eq!(lex.next(), Some(Ok(Token::ValueRef(10))));
         assert_eq!(lex.slice(), "value 10 lines below");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Word("."))));
+        assert_eq!(lex.next(), Some(Ok(Token::Punctuation("."))));
         assert_eq!(lex.slice(), ".");
 
         assert_eq!(lex.next(), None);
@@ -347,8 +369,16 @@ mod tests {
     fn test_value_ref2() {
         let mut lex = Token::lexer("The story ended, with their value 2 lines below.");
 
-        let words = vec!["The", "story", "ended,", "with", "their"];
+        let words = vec!["The", "story", "ended"];
         for word in words {
+            assert_eq!(lex.next(), Some(Ok(Token::Word(word))));
+            assert_eq!(lex.slice(), word);
+        }
+
+        assert_eq!(lex.next(), Some(Ok(Token::Punctuation(","))));
+
+        let words2 = vec!["with", "their"];
+        for word in words2 {
             assert_eq!(lex.next(), Some(Ok(Token::Word(word))));
             assert_eq!(lex.slice(), word);
         }
@@ -356,7 +386,7 @@ mod tests {
         assert_eq!(lex.next(), Some(Ok(Token::ValueRef(2))));
         assert_eq!(lex.slice(), "value 2 lines below");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Word("."))));
+        assert_eq!(lex.next(), Some(Ok(Token::Punctuation("."))));
         assert_eq!(lex.slice(), ".");
 
         assert_eq!(lex.next(), None);
@@ -368,11 +398,13 @@ mod tests {
             "The story began, wirrrrrrrrrrrrrrrrrrrrrrrrrrrrrrirringly and with oompf.",
         );
 
-        let words = vec!["The", "story", "began,"];
+        let words = vec!["The", "story", "began"];
         for word in words {
             assert_eq!(lex.next(), Some(Ok(Token::Word(word))));
             assert_eq!(lex.slice(), word);
         }
+
+        assert_eq!(lex.next(), Some(Ok(Token::Punctuation(","))));
 
         assert_eq!(
             lex.next(),
@@ -382,7 +414,7 @@ mod tests {
         );
         assert_eq!(lex.slice(), "wirrrrrrrrrrrrrrrrrrrrrrrrrrrrrrirringly");
 
-        let words = vec!["and", "with", "oompf."];
+        let words = vec!["and", "with", "oompf"];
         for word in words {
             assert_eq!(lex.next(), Some(Ok(Token::Word(word))));
             assert_eq!(lex.slice(), word);
@@ -410,7 +442,7 @@ mod tests {
         assert_eq!(lex.next(), Some(Ok(Token::FloatLiteral("1.8"))));
         assert_eq!(lex.slice(), "1.8");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Word("."))));
+        assert_eq!(lex.next(), Some(Ok(Token::Punctuation("."))));
         assert_eq!(lex.slice(), ".");
 
         assert_eq!(lex.next(), None);
@@ -451,7 +483,7 @@ mod tests {
 
         for sym in symbols {
             let mut lex = Token::lexer(sym);
-            assert_eq!(lex.next(), Some(Ok(Token::Word(sym))));
+            assert_eq!(lex.next(), Some(Ok(Token::Punctuation(sym))));
             assert_eq!(lex.slice(), sym);
         }
     }

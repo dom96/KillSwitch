@@ -109,6 +109,8 @@ where
         )
     });
 
+    let ignored = any().filter(|t| matches!(t, Token::NewLine | Token::Punctuation(_)));
+
     let single_node = recursive(|value| {
         let word_like_atom = select! {
             Token::Word(w) = e => Node::Word(w.to_owned()).spanned(e.span()),
@@ -136,7 +138,14 @@ where
         // anagrams put at the start of the function call and allows adverbs to be called
         // from other positions.
         let func_call = just(Token::FuncCall)
-            .then(word_like_atom.repeated().collect::<Vec<_>>())
+            .then(
+                word_like_atom
+                    .repeated()
+                    .collect::<Vec<_>>()
+                    .separated_by(any().filter(|t| matches!(t, Token::Punctuation(_))))
+                    .collect::<Vec<Vec<_>>>()
+                    .map(|words| words.into_iter().flatten().collect::<Vec<_>>()),
+            )
             .try_map_with(|(_, mut words), e| {
                 let first_adverb_idx = words
                     .clone()
@@ -164,7 +173,7 @@ where
                 word_like_atom
                     .repeated()
                     .collect::<Vec<_>>()
-                    .separated_by(just(Token::NewLine))
+                    .separated_by(ignored)
                     .collect::<Vec<Vec<_>>>()
                     .map(|lines| lines.into_iter().flatten().collect::<Vec<_>>()),
             )
@@ -207,7 +216,7 @@ where
 
         let node_list = value
             .clone()
-            .separated_by(just(Token::NewLine).repeated())
+            .separated_by(ignored.repeated())
             .allow_leading()
             .allow_trailing()
             .collect::<Vec<_>>();
@@ -232,7 +241,7 @@ where
     });
 
     single_node
-        .separated_by(just(Token::NewLine).repeated())
+        .separated_by(ignored.repeated())
         .allow_leading()
         .allow_trailing()
         .collect::<Vec<_>>()
@@ -279,7 +288,7 @@ mod tests {
             vec![
                 Node::FuncCall(
                     "frigidly,".to_string(),
-                    vec![Node::Word("not!".to_owned()).spanned(67..71)],
+                    vec![Node::Word("not".to_owned()).spanned(67..70)],
                 )
                 .spanned(28..71),
             ],
@@ -309,6 +318,8 @@ mod tests {
         );
 
         let result = parsed_result.into_result().unwrap();
+
+        println!("{:?}", result);
 
         let expected = Node::FuncCall(
             "sparingly".to_string(),
@@ -369,7 +380,7 @@ mod tests {
 
         // We only care that this parsed fine since it's just text. Not worried about what it
         // parses as for now.
-        assert_eq!(result.len(), 9);
+        assert_eq!(result.len(), 7);
     }
 
     #[test]
@@ -383,12 +394,10 @@ mod tests {
             Node::Word("Weather".to_owned()),
             Node::Word("at".to_owned()),
             Node::FuncReturn,
-            Node::Word("?".to_owned()),
             Node::Word("How".to_owned()),
             Node::Word("do".to_owned()),
             Node::Word("I".to_owned()),
             Node::FuncReturn,
-            Node::Word("?".to_owned()),
         ];
         assert_eq!(
             result.into_iter().map(|(n, _s)| n).collect::<Vec<_>>(),
@@ -407,7 +416,6 @@ mod tests {
             Node::Word("wanted".to_owned()).spanned(5..11),
             Node::Word("a".to_owned()).spanned(12..13),
             Node::ValueRef(1).spanned(14..32),
-            Node::Word(".".to_owned()).spanned(32..33),
         ];
         assert_eq!(result, expected);
     }
@@ -425,7 +433,7 @@ mod tests {
             vec![
                 Node::FuncCall(
                     "frigidly,".to_string(),
-                    vec![Node::Word("not!".to_owned()).spanned(67..71)],
+                    vec![Node::Word("not".to_owned()).spanned(67..70)],
                 )
                 .spanned(28..71),
             ],
