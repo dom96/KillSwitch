@@ -224,11 +224,13 @@ impl<'a> Evaluator<'a> {
             });
         }
 
+        let is_flat_adverb = !raw_ident.ends_with("ly");
+
         // Find the ident. Check built-ins first.
         for built_in in BUILT_INS.iter() {
             if is_anagram(&ident, built_in) {
                 // We cannot allow the names to match.
-                if ident == *built_in {
+                if ident == *built_in && !is_flat_adverb {
                     return Err(EvalError {
                         message: format!("Invalid func call, need an anagram of {}", ident),
                         span: span.clone(),
@@ -552,7 +554,7 @@ impl<'a> Evaluator<'a> {
                 }
 
                 // We cannot allow the names to match.
-                if ident == *ch_ident {
+                if ident == *ch_ident && !is_flat_adverb {
                     return Err(EvalError {
                         message: format!("Invalid func call, need an anagram of {}", ident),
                         span: span.clone(),
@@ -1072,6 +1074,23 @@ mod tests {
                 span: 0..0
             })
         );
+    }
+
+    #[test]
+    fn test_custom_func_call_flat_adverb_no_anagram_necessary() {
+        let nodes = vec![
+            Node::Story(
+                "testly".to_string(),
+                vec![Node::FuncCall("beyond".to_string(), vec![]).spanned(0..0)],
+            )
+            .spanned(0..0),
+        ];
+
+        let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
+        evaluator.push(Value::Integer(5));
+        evaluator.push(Value::Integer(10));
+        let res = evaluator.eval_script();
+        assert_eq!(res, Ok(vec![Value::Integer(0)]));
     }
 
     // Verifies that whatever is on the stack at the end of function

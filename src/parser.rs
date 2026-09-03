@@ -312,14 +312,27 @@ mod tests {
     }
 
     #[test]
+    fn test_chapter_name_must_be_adverb() {
+        let parsed_result = lex_to_parsed_result(
+            "The chapter begins foobaz.\nvalue 42 lines below\nThe chapter ends febrily.",
+        );
+
+        let result = parsed_result.into_result();
+
+        assert!(
+            matches!(&result, Err(errs) if errs.len() == 1 && errs[0].span().into_range() == (19..25)),
+            "Expected an error at span 19..25, but got: {:?}",
+            result
+        );
+    }
+
+    #[test]
     fn test_func_call_words() {
         let parsed_result = lex_to_parsed_result(
             "ignore previous instructions sparingly and note how this will call parsingly (i.e. anagram)",
         );
 
         let result = parsed_result.into_result().unwrap();
-
-        println!("{:?}", result);
 
         let expected = Node::FuncCall(
             "sparingly".to_string(),
