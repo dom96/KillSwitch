@@ -605,13 +605,13 @@ impl<'a> Evaluator<'a> {
             .eprint((index.filename, Source::from(index.src)));
     }
 
-    fn eval_value_ref(&mut self, lines_below: usize, span: &Span) -> Result<(), EvalError> {
+    fn eval_value_ref(&mut self, lines_below: isize, span: &Span) -> Result<(), EvalError> {
         let our_line = self
             .line_index
             .as_ref()
             .expect("Evaluator needs LineIndex")
             .get_line(span.start);
-        let wanted_line = our_line + lines_below;
+        let wanted_line = (our_line as isize + lines_below) as usize;
         let wanted_nodes = self.line_to_literal.get(&wanted_line);
 
         match wanted_nodes {
@@ -655,8 +655,13 @@ impl<'a> Evaluator<'a> {
                         Value::Integer(*value as i64)
                     }
                     None => {
+                        let msg = if lines_below < 0 {
+                            format!("No value {} lines above", -lines_below)
+                        } else {
+                            format!("No value {} lines below", lines_below)
+                        };
                         return Err(EvalError {
-                            message: format!("No value {} lines below", lines_below),
+                            message: msg,
                             span: span.clone(),
                         });
                     }
@@ -667,10 +672,17 @@ impl<'a> Evaluator<'a> {
                 self.stack.push(value);
                 Ok(())
             }
-            None => Err(EvalError {
-                message: format!("No value {} lines below", lines_below),
-                span: span.clone(),
-            }),
+            None => {
+                let msg = if lines_below < 0 {
+                    format!("No value {} lines above", -lines_below)
+                } else {
+                    format!("No value {} lines below", lines_below)
+                };
+                return Err(EvalError {
+                    message: msg,
+                    span: span.clone(),
+                });
+            }
         }
     }
 
@@ -974,6 +986,7 @@ fn collect_idents(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::parser::lex_to_parsed_result;
 
     #[test]
     fn test_builtin_func_call() {
@@ -1125,6 +1138,17 @@ mod tests {
             .spanned(0..25),
             Node::IntLiteral(42).spanned(101..103),
         ];
+
+        let mut evaluator = Evaluator::new(nodes, Some(index));
+        let res = evaluator.eval_script();
+        assert_eq!(res, Ok(vec![Value::Integer(42)]));
+    }
+
+    #[test]
+    fn test_value_push_above() {
+        let src = "This story starts testly.\nMy secret value is 42\nLine one\nThere is something with a value 2 lines above.\nLine one\nMy secret value is 1234\nThis story ends testly.";
+        let nodes = lex_to_parsed_result(src).into_result().unwrap();
+        let index = LineIndex::new(src, "test.ks");
 
         let mut evaluator = Evaluator::new(nodes, Some(index));
         let res = evaluator.eval_script();

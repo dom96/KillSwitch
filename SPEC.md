@@ -94,6 +94,8 @@ Note the "rarpirrdrly" adverb at the end. The letter that is inside the global f
 used, so if it's set to 'r' then the number of the letter 'r' is counted in the word "rarpirrdrly" which
 is 5. Then 5 is pushed onto the stack.
 
+You may also references lines "above".
+
 ### Parsing
 
 Normal text is encouraged throughout the application. If it does not match any of the syntax constructs defined here,

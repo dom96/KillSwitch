@@ -50,8 +50,8 @@ pub enum Token<'a> {
     #[regex(r"([a-zA-Z]+ly(\p{P}+)?|(fast|hard|early|late|soon|far|slow|quick|loud|tight|right|sharp|cheap|clean|deep|high|beyond|within))", callback = |lex| lex.slice(), ignore(case))]
     Adverb(&'a str),
 
-    #[regex(r"value ([0-9]+) line(s)? below", parse_number)]
-    ValueRef(usize),
+    #[regex(r"value ([0-9]+) line(s)? (below|above)", parse_number)]
+    ValueRef(isize),
 
     // TODO: NaN
     #[regex(r"[+-]?(?:[0-9](?:_?[0-9])*\.[0-9](?:_?[0-9])*|\.[0-9](?:_?[0-9])*)(?:[eE][+-]?[0-9](?:_?[0-9])*)?|[+-]?[0-9](?:_?[0-9])*[eE][+-]?[0-9](?:_?[0-9])*")]
@@ -81,7 +81,7 @@ impl fmt::Display for Token<'_> {
     }
 }
 
-fn parse_number<'a>(lex: &mut Lexer<'a, Token<'a>>) -> Option<usize> {
+fn parse_number<'a>(lex: &mut Lexer<'a, Token<'a>>) -> Option<isize> {
     let slice = lex.slice();
 
     let without_prefix = &slice[6..];
@@ -89,7 +89,13 @@ fn parse_number<'a>(lex: &mut Lexer<'a, Token<'a>>) -> Option<usize> {
 
     // Extract the string and parse it into a usize.
     // Returning an Option allows logos to handle potential overflow errors gracefully.
-    without_prefix[..space_idx].parse().ok()
+    let result = without_prefix[..space_idx].parse().ok();
+
+    if slice.ends_with("above") {
+        result.map(|v: isize| -v)
+    } else {
+        result
+    }
 }
 
 #[cfg(test)]

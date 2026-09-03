@@ -20,7 +20,7 @@ pub enum Node {
     FloatLiteral(f64),
     StringLiteral(String),
     FuncReturn,
-    ValueRef(usize), // count of "lines below"
+    ValueRef(isize), // count of "lines below"
     Adverb(String),  // can be referenced by ValueRef
     Word(String),
     VariableAssign(String),
