@@ -22,7 +22,7 @@ pub enum Node {
     FuncReturn,
     ValueRef(usize), // count of "lines below"
     Adverb(String),  // can be referenced by ValueRef
-    Word,
+    Word(String),
     VariableAssign(String),
     VariableRead(String),
     Hack(String, Option<String>),
@@ -58,7 +58,7 @@ impl fmt::Display for Node {
             Node::FuncReturn => write!(f, "FuncReturn"),
             Node::ValueRef(lines) => write!(f, "ValueRef({})", lines),
             Node::Adverb(adverb) => write!(f, "Adverb({})", adverb),
-            Node::Word => write!(f, "Word"),
+            Node::Word(w) => write!(f, "Word({})", w),
             Node::VariableAssign(adverb) => write!(f, "VariableAssign({})", adverb),
             Node::VariableRead(ident) => write!(f, "VariableRead({})", ident),
             Node::Hack(a, b) => write!(f, "Hack({}, {:?})", a, b),
@@ -109,14 +109,9 @@ where
         )
     });
 
-    let word_or_adverb_to_ident = select! {
-        Token::Adverb(ident) => ident,
-        Token::Word(word) => word,
-    };
-
     let single_node = recursive(|value| {
         let word_like_atom = select! {
-            Token::Word(_w) = e => Node::Word.spanned(e.span()),
+            Token::Word(w) = e => Node::Word(w.to_owned()).spanned(e.span()),
             Token::Adverb(w) = e => Node::Adverb(w.to_owned()).spanned(e.span()),
             Token::FloatLiteral(s) = e => Node::FloatLiteral(s.parse().unwrap()).spanned(e.span()),
             Token::IntegerLiteral(s) = e => Node::IntLiteral(s.parse().unwrap()).spanned(e.span()),
@@ -125,19 +120,43 @@ where
 
         // Ref: https://docs.rs/chumsky/latest/chumsky/macro.select.html
         let atom = select! {
-            Token::Word(_w) = e => Node::Word.spanned(e.span()),
+            Token::Word(w) = e => Node::Word(w.to_owned()).spanned(e.span()),
             Token::Return = e => Node::FuncReturn.spanned(e.span()),
             Token::ValueRef(line_count) = e => Node::ValueRef(line_count).spanned(e.span()),
             Token::VariableRead(ident) = e => Node::VariableRead(ident.into()).spanned(e.span()),
         }
         .or(word_like_atom);
 
-        // TODO: allow ident adverb anywhere in FuncCall/VariableAssign.
+        // Idea: perhaps we allow the adverb used to not be an anagram, if the word
+        // count rules are satisfied, but if not we do allow anagrams (but the whole sentence
+        // can't have any adverbs then)
+        //
+        // We currently use a somewhat complex rule: pick the first adverb in the words list,
+        // if there is no adverb amongst the words then use the first word. This handles
+        // anagrams put at the start of the function call and allows adverbs to be called
+        // from other positions.
         let func_call = just(Token::FuncCall)
-            .then(word_or_adverb_to_ident)
             .then(word_like_atom.repeated().collect::<Vec<_>>())
-            .map_with(|((_func, ident), words), e| {
-                Node::FuncCall(ident.to_owned(), words).spanned(e.span())
+            .try_map_with(|(_, mut words), e| {
+                let first_adverb_idx = words
+                    .clone()
+                    .into_iter()
+                    .position(|t| matches!(t.unspanned(), Node::Adverb(_)));
+                // TODO: Show warning when multiple adverbs exist?
+                let first_adverb = first_adverb_idx.map(|idx| words.remove(idx));
+
+                match (first_adverb, words.get(0)) {
+                    (Some((Node::Adverb(ident), _)), _) => {
+                        Ok(Node::FuncCall(ident.to_owned(), words).spanned(e.span()))
+                    }
+                    (_, Some((Node::Word(ident), _))) => {
+                        Ok(Node::FuncCall(ident.to_owned(), words[1..].to_vec()).spanned(e.span()))
+                    }
+                    _ => Err(Rich::custom(
+                        e.span(),
+                        "Function call requires an identifier in the form of a word or adverb",
+                    )),
+                }
             });
 
         let variable_assignment = just(Token::VariableAssign)
@@ -258,8 +277,11 @@ mod tests {
         let expected = Node::Story(
             "frostily.".to_string(),
             vec![
-                Node::FuncCall("frigidly,".to_string(), vec![Node::Word.spanned(67..71)])
-                    .spanned(28..71),
+                Node::FuncCall(
+                    "frigidly,".to_string(),
+                    vec![Node::Word("not!".to_owned()).spanned(67..71)],
+                )
+                .spanned(28..71),
             ],
         );
         assert_eq!(result[0].unspanned(), &expected);
@@ -288,7 +310,10 @@ mod tests {
 
         let result = parsed_result.into_result().unwrap();
 
-        let expected = Node::FuncCall("sparingly".to_string(), vec![Node::Word.spanned(0..0); 9]);
+        let expected = Node::FuncCall(
+            "sparingly".to_string(),
+            vec![Node::Word("".to_owned()).spanned(0..0); 9],
+        );
         assert_eq_func_call(&result[0].unspanned(), &expected);
     }
 
@@ -299,7 +324,10 @@ mod tests {
 
         let result = parsed_result.into_result().unwrap();
 
-        let expected = Node::FuncCall("eqaully,".to_string(), vec![Node::Word.spanned(0..0); 7]);
+        let expected = Node::FuncCall(
+            "eqaully,".to_string(),
+            vec![Node::Word("".to_owned()).spanned(0..0); 7],
+        );
         assert_eq_func_call(&result[0].unspanned(), &expected);
     }
 
@@ -323,7 +351,7 @@ mod tests {
 
         let expected = Node::FuncCall(
             "additionally".to_string(),
-            vec![Node::Word.spanned(0..0); 10],
+            vec![Node::Word("".to_owned()).spanned(0..0); 10],
         );
         assert_eq_func_call(&result[0].unspanned(), &expected);
     }
@@ -352,15 +380,15 @@ mod tests {
         let result = parsed_result.into_result().unwrap();
 
         let expected = [
-            Node::Word,
-            Node::Word,
+            Node::Word("Weather".to_owned()),
+            Node::Word("at".to_owned()),
             Node::FuncReturn,
-            Node::Word,
-            Node::Word,
-            Node::Word,
-            Node::Word,
+            Node::Word("?".to_owned()),
+            Node::Word("How".to_owned()),
+            Node::Word("do".to_owned()),
+            Node::Word("I".to_owned()),
             Node::FuncReturn,
-            Node::Word,
+            Node::Word("?".to_owned()),
         ];
         assert_eq!(
             result.into_iter().map(|(n, _s)| n).collect::<Vec<_>>(),
@@ -375,11 +403,11 @@ mod tests {
         let result = parsed_result.into_result().unwrap();
 
         let expected = [
-            Node::Word.spanned(0..4),
-            Node::Word.spanned(5..11),
-            Node::Word.spanned(12..13),
+            Node::Word("They".to_owned()).spanned(0..4),
+            Node::Word("wanted".to_owned()).spanned(5..11),
+            Node::Word("a".to_owned()).spanned(12..13),
             Node::ValueRef(1).spanned(14..32),
-            Node::Word.spanned(32..33),
+            Node::Word(".".to_owned()).spanned(32..33),
         ];
         assert_eq!(result, expected);
     }
@@ -395,8 +423,11 @@ mod tests {
         let expected = Node::Story(
             "frostily.".to_string(),
             vec![
-                Node::FuncCall("frigidly,".to_string(), vec![Node::Word.spanned(67..71)])
-                    .spanned(28..71),
+                Node::FuncCall(
+                    "frigidly,".to_string(),
+                    vec![Node::Word("not!".to_owned()).spanned(67..71)],
+                )
+                .spanned(28..71),
             ],
         );
         assert_eq!(result[0].unspanned(), &expected);
@@ -410,7 +441,7 @@ mod tests {
 
         let expected = [
             Node::VariableAssign("firstly,".to_string()).spanned(0..40),
-            Node::Word.spanned(41..45),
+            Node::Word("blah".to_owned()).spanned(41..45),
         ];
         assert_eq!(result, expected);
     }
@@ -425,7 +456,7 @@ mod tests {
 
         let expected = [
             Node::VariableAssign("supposedly".to_string()).spanned(0..72),
-            Node::Word.spanned(73..77),
+            Node::Word("blah".to_owned()).spanned(73..77),
         ];
         assert_eq!(result, expected);
     }
@@ -438,7 +469,7 @@ mod tests {
 
         let expected = [
             Node::VariableRead("imminently".to_string()).spanned(0..17),
-            Node::Word.spanned(18..22),
+            Node::Word("word".to_owned()).spanned(18..22),
         ];
         assert_eq!(result, expected);
     }

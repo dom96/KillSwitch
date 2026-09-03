@@ -138,7 +138,7 @@ impl<'a> Evaluator<'a> {
                 Ok(false)
             }
             (Node::FuncReturn, _) => Ok(true),
-            (Node::Word, _) => Ok(false),
+            (Node::Word(_), _) => Ok(false),
             (Node::Adverb(_), _) => Ok(false),
             (Node::FloatLiteral(_), _) => Ok(false),
             (Node::IntLiteral(_), _) => Ok(false),
@@ -213,7 +213,13 @@ impl<'a> Evaluator<'a> {
         let is_correct_focus_count = word_count == focus_letter_count;
         if !is_correct_words_long && !is_correct_focus_count {
             return Err(EvalError {
-                message: "Invalid func call, incorrect number of words given".to_string(),
+                message: format!(
+                    "Invalid func call, incorrect number of words given for `{}`, got {} wanted {} or {}",
+                    raw_ident,
+                    word_count,
+                    focus_letter_count,
+                    ident.len()
+                ),
                 span: span.clone(),
             });
         }
@@ -882,7 +888,7 @@ fn collect_values(
                     .or_default()
                     .push(node.unspanned().clone());
             }
-            (Node::Word, _) => (),
+            (Node::Word(_), _) => (),
             (Node::VariableAssign(_), _) => (),
             (Node::VariableRead(_), _) => (),
             (Node::Hack(_, _), _) => (),
@@ -949,9 +955,12 @@ fn collect_idents(
             (Node::FloatLiteral(_), _span) => (),
             (Node::StringLiteral(_), _span) => (),
             (Node::Adverb(_), _span) => (),
-            (Node::Word, _span) => (),
+            (Node::Word(_), _span) => (),
             (Node::FuncCall(_, _), _span) => (),
             (Node::ValueRef(_), _span) => (),
+            (Node::Hack(_, _), _span) => (),
+            (Node::VariableRead(_), _span) => (),
+            (Node::VariableAssign(_), _span) => (),
             _ => {
                 unimplemented!("TODO {:?}", n);
             }
@@ -1227,8 +1236,11 @@ mod tests {
             Node::Story(
                 "testly".to_string(),
                 vec![
-                    Node::FuncCall("frigidly".to_string(), vec![Node::Word.spanned(0..0); 15])
-                        .spanned(0..0),
+                    Node::FuncCall(
+                        "frigidly".to_string(),
+                        vec![Node::Word("".to_owned()).spanned(0..0); 15],
+                    )
+                    .spanned(0..0),
                 ],
             )
             .spanned(0..0),
@@ -1246,7 +1258,7 @@ mod tests {
         assert_eq!(
             res,
             Err(EvalError {
-                message: "Invalid func call, incorrect number of words given".to_string(),
+                message: "Invalid func call, incorrect number of words given for `frigidly`, got 15 wanted 1 or 8".to_string(),
                 span: 0..0
             })
         );
