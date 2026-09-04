@@ -47,6 +47,12 @@ pub enum Token<'a> {
     #[token("hack_the_planet", ignore(case))]
     HackStmt,
 
+    #[token("<content>")]
+    FocusDecrement,
+
+    #[token("</content>")]
+    FocusIncrement,
+
     #[regex(r"([a-zA-Z]+ly(\p{P}+)?|(fast|hard|early|late|soon|far|slow|quick|loud|tight|right|sharp|cheap|clean|deep|high|beyond|within))", callback = |lex| lex.slice(), ignore(case))]
     Adverb(&'a str),
 
@@ -66,10 +72,13 @@ pub enum Token<'a> {
     #[token("\n")]
     NewLine,
 
+    #[token("`")]
+    Backtick,
+
     #[regex(r#"[a-zA-Z]+([-.'_][a-zA-Z]+)*"#, callback = |lex| lex.slice())]
     Word(&'a str),
 
-    #[regex(r#"[[\p{P}\p{S}]&&[^"]]+"#, callback = |lex| lex.slice())]
+    #[regex(r#"[[\p{P}\p{S}]&&[^"`]]+"#, callback = |lex| lex.slice())]
     Punctuation(&'a str),
 }
 
@@ -573,6 +582,32 @@ mod tests {
             Token::Word("and"),
             Token::Adverb("brutally"),
         ];
+        for tok in expected {
+            assert_eq!(lex.next(), Some(Ok(tok)));
+        }
+    }
+
+    #[test]
+    fn test_incr() {
+        let mut lex = Token::lexer("````</content>");
+
+        let expected = vec![
+            Token::Backtick,
+            Token::Backtick,
+            Token::Backtick,
+            Token::Backtick,
+            Token::FocusIncrement,
+        ];
+        for tok in expected {
+            assert_eq!(lex.next(), Some(Ok(tok)));
+        }
+    }
+
+    #[test]
+    fn test_decr() {
+        let mut lex = Token::lexer("``<content>");
+
+        let expected = vec![Token::Backtick, Token::Backtick, Token::FocusDecrement];
         for tok in expected {
             assert_eq!(lex.next(), Some(Ok(tok)));
         }

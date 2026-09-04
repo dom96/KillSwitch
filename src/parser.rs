@@ -26,6 +26,7 @@ pub enum Node {
     VariableAssign(String),
     VariableRead(String),
     Hack(String, Option<String>),
+    FocusChange(isize),
 }
 
 impl fmt::Display for Node {
@@ -62,6 +63,7 @@ impl fmt::Display for Node {
             Node::VariableAssign(adverb) => write!(f, "VariableAssign({})", adverb),
             Node::VariableRead(ident) => write!(f, "VariableRead({})", ident),
             Node::Hack(a, b) => write!(f, "Hack({}, {:?})", a, b),
+            Node::FocusChange(t) => write!(f, "FocusChange({})", t),
         }
     }
 }
@@ -214,6 +216,18 @@ where
                 }
             });
 
+        let focus_decr = just(Token::Backtick)
+            .repeated()
+            .collect::<Vec<_>>()
+            .then(just(Token::FocusDecrement))
+            .map_with(|(t, _), e| Node::FocusChange(t.len() as isize).spanned(e.span()));
+
+        let focus_incr = just(Token::Backtick)
+            .repeated()
+            .collect::<Vec<_>>()
+            .then(just(Token::FocusIncrement))
+            .map_with(|(t, _), e| Node::FocusChange(-(t.len() as isize)).spanned(e.span()));
+
         let node_list = value
             .clone()
             .separated_by(ignored.repeated())
@@ -238,6 +252,8 @@ where
             .or(hack_stmt)
             .or(story)
             .or(chapter)
+            .or(focus_decr)
+            .or(focus_incr)
     });
 
     single_node
@@ -513,6 +529,16 @@ mod tests {
         let result = parsed_result.into_result().unwrap();
 
         let expected = [Node::Hack("murderously".to_string(), None).spanned(0..44)];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_focus_decrement() {
+        let parsed_result = lex_to_parsed_result("```<content>");
+
+        let result = parsed_result.into_result().unwrap();
+
+        let expected = [Node::FocusChange(3).spanned(0..12)];
         assert_eq!(result, expected);
     }
 }

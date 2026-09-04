@@ -17,9 +17,6 @@ pub struct Evaluator<'a> {
     // Used during evaluation.
     stack: Vec<Value>,
 
-    // Global variables, mainly here for easier testing.
-    variables: HashMap<String, Value>,
-
     // The nodes that this evaluator is evaluating.
     nodes: Vec<Spanned<Node>>,
 
@@ -69,7 +66,6 @@ impl<'a> Evaluator<'a> {
     pub fn new(nodes: Vec<Spanned<Node>>, line_index: Option<LineIndex<'a>>) -> Self {
         Self {
             line_to_literal: collect_values(&nodes, &line_index),
-            variables: HashMap::new(),
             stack: Vec::new(),
             nodes: nodes,
             idents: HashMap::new(),
@@ -101,8 +97,10 @@ impl<'a> Evaluator<'a> {
             Some(i) => match self.nodes[i].clone() {
                 // TODO: Remove clone.
                 (Node::Story(_, children), _) => {
+                    let mut variable_store: HashMap<String, Value> = HashMap::new();
+
                     for child in children.iter().rev() {
-                        let was_return = self.eval_node(&child, None)?;
+                        let was_return = self.eval_node(&child, Some(&mut variable_store))?;
                         if was_return {
                             break;
                         }
@@ -134,7 +132,7 @@ impl<'a> Evaluator<'a> {
                 Ok(false)
             }
             (Node::ValueRef(lines_below), span) => {
-                self.eval_value_ref(*lines_below, span)?;
+                self.eval_value_ref(*lines_below, maybe_variable_store.as_deref(), span)?;
                 Ok(false)
             }
             (Node::FuncReturn, _) => {
@@ -164,6 +162,10 @@ impl<'a> Evaluator<'a> {
             }
             (Node::Chapter(_, _), _) => {
                 // Nested chapters don't need to be evaluated.
+                Ok(false)
+            }
+            (Node::FocusChange(t), span) => {
+                self.eval_focus(*t, maybe_variable_store, span)?;
                 Ok(false)
             }
             _ => {
@@ -215,7 +217,7 @@ impl<'a> Evaluator<'a> {
         // Verify that this is a valid function call.
         let is_correct_words_long = ident.len() == word_count as usize;
 
-        let focus_var_value = self.get_focus_var();
+        let focus_var_value = self.get_focus_var(maybe_variable_store);
         let focus_letter_count = count_letters_in(focus_var_value, &ident);
         let is_correct_focus_count = word_count == focus_letter_count;
         if !is_correct_words_long && !is_correct_focus_count {
@@ -612,7 +614,12 @@ impl<'a> Evaluator<'a> {
             .eprint((index.filename, Source::from(index.src)));
     }
 
-    fn eval_value_ref(&mut self, lines_below: isize, span: &Span) -> Result<(), EvalError> {
+    fn eval_value_ref(
+        &mut self,
+        lines_below: isize,
+        maybe_variable_store: Option<&HashMap<String, Value>>,
+        span: &Span,
+    ) -> Result<(), EvalError> {
         let our_line = self
             .line_index
             .as_ref()
@@ -640,7 +647,7 @@ impl<'a> Evaluator<'a> {
                     Some(Node::Adverb(a)) => {
                         // We look up the current focus variable, whatever char it is we count in the
                         // adverb. Then push that as the value.
-                        let focus_var_value = self.get_focus_var();
+                        let focus_var_value = self.get_focus_var(maybe_variable_store);
                         let value = count_letters_in(focus_var_value, a) as i64;
                         // We print out a warning if this was chosen, because this behaviour is pretty surprising.
                         // Especially when it gets chosen randomly (as I have found).
@@ -701,7 +708,7 @@ impl<'a> Evaluator<'a> {
     ) -> Result<(), EvalError> {
         let variable_store = match maybe_variable_store {
             Some(v) => v,
-            None => &mut self.variables,
+            None => panic!("Variable store expected for var assign"),
         };
 
         // Process the ident to remove punctuation.
@@ -728,7 +735,7 @@ impl<'a> Evaluator<'a> {
     ) -> Result<(), EvalError> {
         let variable_store = match maybe_variable_store {
             Some(v) => v,
-            None => &self.variables,
+            None => panic!("Variable store expected for var assign"),
         };
 
         // Process the ident to remove punctuation.
@@ -777,8 +784,27 @@ impl<'a> Evaluator<'a> {
         }
     }
 
-    fn get_focus_var(&self) -> u8 {
-        b'r' // TODO: Implement variables.
+    fn eval_focus(
+        &mut self,
+        t: isize,
+        maybe_variable_store: Option<&mut HashMap<String, Value>>,
+        _span: &Span,
+    ) -> Result<(), EvalError> {
+        let variable_store = maybe_variable_store.expect("Need variable store for focus var");
+        let ident = sort_ident(normalize_ident("intently"));
+        let value = self.get_focus_var(Some(variable_store));
+
+        variable_store.insert(ident, Value::Integer((value - (t as u8)) as i64));
+        Ok(())
+    }
+
+    fn get_focus_var(&self, maybe_variable_store: Option<&HashMap<String, Value>>) -> u8 {
+        let variable_store = maybe_variable_store.expect("Need variable store for focus var");
+        let ident = sort_ident(normalize_ident("intently"));
+        match variable_store.get(&ident) {
+            Some(Value::Integer(r)) => *r as u8,
+            _ => b'r',
+        }
     }
 }
 
@@ -913,6 +939,7 @@ fn collect_values(
             (Node::VariableAssign(_), _) => (),
             (Node::VariableRead(_), _) => (),
             (Node::Hack(_, _), _) => (),
+            (Node::FocusChange(_), _) => (),
         }
     }
 
@@ -982,6 +1009,7 @@ fn collect_idents(
             (Node::Hack(_, _), _span) => (),
             (Node::VariableRead(_), _span) => (),
             (Node::VariableAssign(_), _span) => (),
+            (Node::FocusChange(_), _span) => (),
             _ => {
                 unimplemented!("TODO {:?}", n);
             }
@@ -1220,7 +1248,7 @@ mod tests {
         let mut got_42 = false;
         let mut got_95_30 = false;
 
-        for i in 0..1_000 {
+        for _i in 0..1_000 {
             if got_42 && got_95_30 {
                 break;
             }
@@ -1314,11 +1342,16 @@ mod tests {
     }
 
     #[test]
-    fn test_var_assign() {
+    fn test_variables() {
         let nodes = vec![
             Node::Story(
                 "testly".to_string(),
-                vec![Node::VariableAssign("folly".to_string()).spanned(0..0)],
+                vec![
+                    Node::VariableRead("oflly".to_string()).spanned(0..0),
+                    Node::VariableRead("oflly".to_string()).spanned(0..0),
+                    Node::VariableRead("oflly".to_string()).spanned(0..0),
+                    Node::VariableAssign("folly".to_string()).spanned(0..0),
+                ],
             )
             .spanned(0..0),
         ];
@@ -1326,29 +1359,14 @@ mod tests {
         let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
         evaluator.push(Value::Integer(42));
         let res = evaluator.eval_script();
-        assert_eq!(res, Ok(vec![]));
         assert_eq!(
-            evaluator.variables.get(&sort_ident("folly".to_string())),
-            Some(&Value::Integer(42))
+            res,
+            Ok(vec![
+                Value::Integer(42),
+                Value::Integer(42),
+                Value::Integer(42)
+            ])
         );
-    }
-
-    #[test]
-    fn test_var_read() {
-        let nodes = vec![
-            Node::Story(
-                "testly".to_string(),
-                vec![Node::VariableRead("oflly".to_string()).spanned(0..0)],
-            )
-            .spanned(0..0),
-        ];
-
-        let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
-        evaluator
-            .variables
-            .insert(sort_ident("folly".to_string()), Value::Integer(66));
-        let res = evaluator.eval_script();
-        assert_eq!(res, Ok(vec![Value::Integer(66)]));
     }
 
     #[test]
@@ -1434,5 +1452,16 @@ mod tests {
         evaluator.push(Value::Integer(1));
         let res = evaluator.eval_script();
         assert_eq!(res, Ok(vec![Value::Float(5.0)]));
+    }
+
+    #[test]
+    fn test_focus_change() {
+        let src = "This story starts testly with 42.\nintently = <stack>;```<content>\nThis story ends testly.";
+        let nodes = lex_to_parsed_result(src).into_result().unwrap();
+        let index = LineIndex::new(src, "test.ks");
+
+        let mut evaluator = Evaluator::new(nodes.clone(), Some(index.clone()));
+        let res = evaluator.eval_script();
+        assert_eq!(res, Ok(vec![Value::Integer(111)]));
     }
 }
