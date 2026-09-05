@@ -275,7 +275,7 @@ The parser will match the following in a sentence and consider it a return:
 - "hack into a computer"
 - "rm -rf /"
 
-The return statement will pop from the stack, it will only early return if `0` is popped. It will not throw an error if stack is empty.
+The return statement will pop from the stack, it will only early return if `1` is popped. It will not throw an error if stack is empty.
 
 ### Variables
 

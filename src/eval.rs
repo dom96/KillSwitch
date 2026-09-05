@@ -139,7 +139,7 @@ impl<'a> Evaluator<'a> {
                 let val = self.stack.pop();
 
                 match val {
-                    Some(Value::Integer(0)) => Ok(true),
+                    Some(Value::Integer(1)) => Ok(true),
                     _ => Ok(false),
                 }
             }
@@ -1297,12 +1297,12 @@ mod tests {
         let index = LineIndex::new(src, "test.ks");
 
         let mut evaluator = Evaluator::new(nodes.clone(), Some(index.clone()));
-        evaluator.push(Value::Integer(0));
+        evaluator.push(Value::Integer(1));
         let res = evaluator.eval_script();
         assert_eq!(res, Ok(vec![]));
 
         evaluator = Evaluator::new(nodes, Some(index));
-        evaluator.push(Value::Integer(1));
+        evaluator.push(Value::Integer(0));
         let res2 = evaluator.eval_script();
         assert_eq!(res2, Ok(vec![Value::Integer(42)]));
     }
