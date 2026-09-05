@@ -13,6 +13,30 @@ pub enum Value {
     Text(String),
 }
 
+#[derive(Debug)]
+pub struct VariableStore {
+    store: HashMap<String, (String, Value)>,
+}
+
+impl VariableStore {
+    pub fn new() -> Self {
+        Self {
+            store: HashMap::new(),
+        }
+    }
+
+    pub fn insert(&mut self, name: &str, value: Value) {
+        self.store
+            .insert(sort_ident(normalize_ident(name)), (name.to_owned(), value));
+    }
+
+    pub fn get(&self, name: &str) -> Option<&Value> {
+        self.store
+            .get(&sort_ident(normalize_ident(name)))
+            .map(|v| &v.1)
+    }
+}
+
 pub struct Evaluator<'a> {
     // Used during evaluation.
     stack: Vec<Value>,
@@ -97,10 +121,10 @@ impl<'a> Evaluator<'a> {
             Some(i) => match self.nodes[i].clone() {
                 // TODO: Remove clone.
                 (Node::Story(_, children), _) => {
-                    let mut variable_store: HashMap<String, Value> = HashMap::new();
+                    let mut variable_store = VariableStore::new();
 
                     for child in children.iter().rev() {
-                        let was_return = self.eval_node(&child, Some(&mut variable_store))?;
+                        let was_return = self.eval_node(&child, &mut variable_store)?;
                         if was_return {
                             break;
                         }
@@ -124,15 +148,15 @@ impl<'a> Evaluator<'a> {
     fn eval_node(
         &mut self,
         node: &Spanned<Node>,
-        maybe_variable_store: Option<&mut HashMap<String, Value>>,
+        variable_store: &mut VariableStore,
     ) -> Result<bool, EvalError> {
         match node {
             (Node::FuncCall(ident, words), span) => {
-                self.eval_func_call(ident, words.len(), maybe_variable_store.as_deref(), span)?;
+                self.eval_func_call(ident, words.len(), variable_store, span)?;
                 Ok(false)
             }
             (Node::ValueRef(lines_below), span) => {
-                self.eval_value_ref(*lines_below, maybe_variable_store.as_deref(), span)?;
+                self.eval_value_ref(*lines_below, variable_store, span)?;
                 Ok(false)
             }
             (Node::FuncReturn, _) => {
@@ -149,15 +173,15 @@ impl<'a> Evaluator<'a> {
             (Node::IntLiteral(_), _) => Ok(false),
             (Node::StringLiteral(_), _) => Ok(false),
             (Node::VariableAssign(ident), span) => {
-                self.eval_var_assign(ident, maybe_variable_store, span)?;
+                self.eval_var_assign(ident, variable_store, span)?;
                 Ok(false)
             }
             (Node::VariableRead(ident, _), span) => {
-                self.eval_var_read(ident, maybe_variable_store.as_deref(), span)?;
+                self.eval_var_read(ident, variable_store, span)?;
                 Ok(false)
             }
             (Node::Hack(a, b), span) => {
-                self.eval_hack(a, b, maybe_variable_store.as_deref(), span)?;
+                self.eval_hack(a, b, variable_store, span)?;
                 Ok(false)
             }
             (Node::Chapter(_, _), _) => {
@@ -165,7 +189,7 @@ impl<'a> Evaluator<'a> {
                 Ok(false)
             }
             (Node::FocusChange(t), span) => {
-                self.eval_focus(*t, maybe_variable_store, span)?;
+                self.eval_focus(*t, variable_store, span)?;
                 Ok(false)
             }
             _ => {
@@ -178,7 +202,7 @@ impl<'a> Evaluator<'a> {
         &mut self,
         raw_ident: &String,
         word_count: usize,
-        maybe_variable_store: Option<&HashMap<String, Value>>,
+        variable_store: &VariableStore,
         span: &Span,
     ) -> Result<(), EvalError> {
         // Handle infinite loops.
@@ -196,7 +220,7 @@ impl<'a> Evaluator<'a> {
         // Track the function calls for stack traces.
         self.nested_func_calls
             .push((raw_ident.to_owned(), span.clone()));
-        let res = self.eval_func_call_impl(raw_ident, word_count, maybe_variable_store, span);
+        let res = self.eval_func_call_impl(raw_ident, word_count, variable_store, span);
         self.nested_func_calls.pop();
         res
     }
@@ -205,7 +229,7 @@ impl<'a> Evaluator<'a> {
         &mut self,
         raw_ident: &String,
         word_count: usize,
-        maybe_variable_store: Option<&HashMap<String, Value>>,
+        variable_store: &VariableStore,
         span: &Span,
     ) -> Result<(), EvalError> {
         // TODO: We can make func lookup faster here, by using the same trick as
@@ -217,7 +241,7 @@ impl<'a> Evaluator<'a> {
         // Verify that this is a valid function call.
         let is_correct_words_long = ident.len() == word_count as usize;
 
-        let focus_var_value = self.get_focus_var(maybe_variable_store);
+        let focus_var_value = self.get_focus_var(variable_store);
         let focus_letter_count = count_letters_in(focus_var_value, &ident);
         let is_correct_focus_count = word_count == focus_letter_count;
         let is_debuggably = ident == normalize_ident("debuggably");
@@ -543,10 +567,7 @@ impl<'a> Evaluator<'a> {
                         return Ok(());
                     }
                     "debuggably" => {
-                        println!(
-                            "DEBUG: stack {:?} vars {:?}",
-                            self.stack, maybe_variable_store
-                        );
+                        println!("DEBUG: stack {:?} vars {:?}", self.stack, variable_store);
                         return Ok(());
                     }
                     &_ => unimplemented!(),
@@ -571,11 +592,11 @@ impl<'a> Evaluator<'a> {
                     });
                 }
 
-                let mut variable_store: HashMap<String, Value> = HashMap::new();
+                let mut variable_store = VariableStore::new();
 
                 // Loop through nodes, back to front.
                 for child in children.iter().rev() {
-                    let was_return = self.eval_node(&child, Some(&mut variable_store))?;
+                    let was_return = self.eval_node(&child, &mut variable_store)?;
                     if was_return {
                         break;
                     }
@@ -618,7 +639,7 @@ impl<'a> Evaluator<'a> {
     fn eval_value_ref(
         &mut self,
         lines_below: isize,
-        maybe_variable_store: Option<&HashMap<String, Value>>,
+        variable_store: &VariableStore,
         span: &Span,
     ) -> Result<(), EvalError> {
         let our_line = self
@@ -648,7 +669,7 @@ impl<'a> Evaluator<'a> {
                     Some(Node::Adverb(a)) => {
                         // We look up the current focus variable, whatever char it is we count in the
                         // adverb. Then push that as the value.
-                        let focus_var_value = self.get_focus_var(maybe_variable_store);
+                        let focus_var_value = self.get_focus_var(variable_store);
                         let value = count_letters_in(focus_var_value, a) as i64;
                         // We print out a warning if this was chosen, because this behaviour is pretty surprising.
                         // Especially when it gets chosen randomly (as I have found).
@@ -704,21 +725,13 @@ impl<'a> Evaluator<'a> {
     fn eval_var_assign(
         &mut self,
         raw_ident: &str,
-        maybe_variable_store: Option<&mut HashMap<String, Value>>,
+        variable_store: &mut VariableStore,
         span: &Span,
     ) -> Result<(), EvalError> {
-        let variable_store = match maybe_variable_store {
-            Some(v) => v,
-            None => panic!("Variable store expected for var assign"),
-        };
-
-        // Process the ident to remove punctuation.
-        let ident = sort_ident(normalize_ident(raw_ident));
-
         let val = self.stack.pop();
         match val {
             Some(v) => {
-                variable_store.insert(ident, v);
+                variable_store.insert(&raw_ident, v);
                 Ok(())
             }
             None => Err(EvalError {
@@ -731,14 +744,9 @@ impl<'a> Evaluator<'a> {
     fn eval_var_read(
         &mut self,
         raw_ident: &str,
-        maybe_variable_store: Option<&HashMap<String, Value>>,
+        variable_store: &VariableStore,
         span: &Span,
     ) -> Result<(), EvalError> {
-        let variable_store = match maybe_variable_store {
-            Some(v) => v,
-            None => panic!("Variable store expected for var assign"),
-        };
-
         // Process the ident to remove punctuation.
         let ident = sort_ident(normalize_ident(raw_ident));
 
@@ -759,7 +767,7 @@ impl<'a> Evaluator<'a> {
         &mut self,
         a: &String,
         maybe_b: &Option<String>,
-        maybe_variable_store: Option<&HashMap<String, Value>>,
+        variable_store: &VariableStore,
         span: &Span,
     ) -> Result<(), EvalError> {
         let val = self.stack.pop();
@@ -767,13 +775,13 @@ impl<'a> Evaluator<'a> {
         match val {
             Some(Value::Integer(v)) if v == 0 => {
                 if let Some(b) = maybe_b {
-                    self.eval_func_call(b, b.len(), maybe_variable_store, span)
+                    self.eval_func_call(b, b.len(), variable_store, span)
                 } else {
                     Ok(())
                 }
             }
             Some(Value::Integer(v)) if v == 1 => {
-                self.eval_func_call(a, a.len(), maybe_variable_store, span)
+                self.eval_func_call(a, a.len(), variable_store, span)
             }
             _ => Err(EvalError {
                 message: format!(
@@ -788,21 +796,17 @@ impl<'a> Evaluator<'a> {
     fn eval_focus(
         &mut self,
         t: isize,
-        maybe_variable_store: Option<&mut HashMap<String, Value>>,
+        variable_store: &mut VariableStore,
         _span: &Span,
     ) -> Result<(), EvalError> {
-        let variable_store = maybe_variable_store.expect("Need variable store for focus var");
-        let ident = sort_ident(normalize_ident("intently"));
-        let value = self.get_focus_var(Some(variable_store));
+        let value = self.get_focus_var(variable_store);
 
-        variable_store.insert(ident, Value::Integer((value - (t as u8)) as i64));
+        variable_store.insert("intently", Value::Integer((value - (t as u8)) as i64));
         Ok(())
     }
 
-    fn get_focus_var(&self, maybe_variable_store: Option<&HashMap<String, Value>>) -> u8 {
-        let variable_store = maybe_variable_store.expect("Need variable store for focus var");
-        let ident = sort_ident(normalize_ident("intently"));
-        match variable_store.get(&ident) {
+    fn get_focus_var(&self, variable_store: &VariableStore) -> u8 {
+        match variable_store.get("intently") {
             Some(Value::Integer(r)) => *r as u8,
             _ => b'r',
         }
