@@ -903,6 +903,7 @@ fn collect_values(
 ) -> HashMap<usize, Vec<Node>> {
     let mut line_to_literal: HashMap<usize, Vec<Node>> = HashMap::new();
     for node in nodes {
+        // TODO: Reduce `line` duplication here.
         match node {
             (Node::FloatLiteral(f), span) => {
                 let line = line_index
@@ -944,13 +945,37 @@ fn collect_values(
                     .or_default()
                     .push(Node::Adverb(a.to_string()));
             }
-            (Node::Story(_, children), _) => {
+            (Node::Story(ident, children), span) => {
+                let line = line_index
+                    .as_ref()
+                    .expect("Evaluator needs LineIndex")
+                    .get_line(span.start);
+                line_to_literal
+                    .entry(line)
+                    .or_default()
+                    .push(Node::Adverb(ident.to_owned()));
                 line_to_literal.extend(collect_values(children, line_index));
             }
-            (Node::Chapter(_, children), _) => {
+            (Node::Chapter(ident, children), span) => {
+                let line = line_index
+                    .as_ref()
+                    .expect("Evaluator needs LineIndex")
+                    .get_line(span.start);
+                line_to_literal
+                    .entry(line)
+                    .or_default()
+                    .push(Node::Adverb(ident.to_owned()));
                 line_to_literal.extend(collect_values(children, line_index));
             }
-            (Node::FuncCall(_, words), _) => {
+            (Node::FuncCall(ident, words), span) => {
+                let line = line_index
+                    .as_ref()
+                    .expect("Evaluator needs LineIndex")
+                    .get_line(span.start);
+                line_to_literal
+                    .entry(line)
+                    .or_default()
+                    .push(Node::Adverb(ident.to_owned()));
                 line_to_literal.extend(collect_values(words, line_index));
             }
             (Node::FuncReturn, _) => (),
@@ -965,12 +990,45 @@ fn collect_values(
                     .push(node.unspanned().clone());
             }
             (Node::Word(_), _) => (),
-            (Node::VariableAssign(_), _) => (),
-            (Node::VariableRead(_, child), _) => {
+            (Node::VariableAssign(ident), span) => {
+                let line = line_index
+                    .as_ref()
+                    .expect("Evaluator needs LineIndex")
+                    .get_line(span.start);
+                line_to_literal
+                    .entry(line)
+                    .or_default()
+                    .push(Node::Adverb(ident.to_owned()));
+            }
+            (Node::VariableRead(ident, child), span) => {
                 let children = vec![(*child).as_ref().clone()];
                 line_to_literal.extend(collect_values(&children, line_index));
+
+                let line = line_index
+                    .as_ref()
+                    .expect("Evaluator needs LineIndex")
+                    .get_line(span.start);
+                line_to_literal
+                    .entry(line)
+                    .or_default()
+                    .push(Node::Adverb(ident.to_owned()));
             }
-            (Node::Hack(_, _), _) => (),
+            (Node::Hack(ident, other), span) => {
+                let line = line_index
+                    .as_ref()
+                    .expect("Evaluator needs LineIndex")
+                    .get_line(span.start);
+                line_to_literal
+                    .entry(line)
+                    .or_default()
+                    .push(Node::Adverb(ident.to_owned()));
+                if let Some(o) = other {
+                    line_to_literal
+                        .entry(line)
+                        .or_default()
+                        .push(Node::Adverb(o.to_owned()));
+                }
+            }
             (Node::FocusChange(_), _) => (),
         }
     }
