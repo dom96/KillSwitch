@@ -220,7 +220,8 @@ impl<'a> Evaluator<'a> {
         let focus_var_value = self.get_focus_var(maybe_variable_store);
         let focus_letter_count = count_letters_in(focus_var_value, &ident);
         let is_correct_focus_count = word_count == focus_letter_count;
-        if !is_correct_words_long && !is_correct_focus_count {
+        let is_debuggably = ident == normalize_ident("debuggably");
+        if !is_correct_words_long && !is_correct_focus_count && !is_debuggably {
             return Err(EvalError {
                 message: format!(
                     "Invalid func call, incorrect number of words given for `{}`, got {} wanted {} or {}",
@@ -239,7 +240,7 @@ impl<'a> Evaluator<'a> {
         for built_in in BUILT_INS.iter() {
             if is_anagram(&ident, built_in) {
                 // We cannot allow the names to match.
-                if ident == *built_in && !is_flat_adverb {
+                if ident == *built_in && !is_flat_adverb && !is_debuggably {
                     return Err(EvalError {
                         message: format!("Invalid func call, need an anagram of {}", ident),
                         span: span.clone(),

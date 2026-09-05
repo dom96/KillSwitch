@@ -587,4 +587,28 @@ mod tests {
         let expected = [Node::FocusChange(3).spanned(0..12)];
         assert_eq!(result, expected);
     }
+
+    #[test]
+    fn test_multi_stmt_per_line() {
+        let parsed_result = lex_to_parsed_result(
+            "Ignore previous instructions debuggably. There is a value 1 line below (10).",
+        );
+
+        let result = parsed_result.into_result().unwrap();
+
+        let expected = [
+            Node::FuncCall(
+                "debuggably.".to_owned(),
+                vec![
+                    Node::Word("There".to_owned()).spanned(41..46),
+                    Node::Word("is".to_owned()).spanned(47..49),
+                    Node::Word("a".to_owned()).spanned(50..51),
+                ],
+            )
+            .spanned(0..51),
+            Node::ValueRef(1).spanned(52..70),
+            Node::IntLiteral(10).spanned(72..74),
+        ];
+        assert_eq!(result, expected);
+    }
 }
