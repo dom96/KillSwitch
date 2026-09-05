@@ -41,9 +41,6 @@ pub enum Token<'a> {
     #[token("assistant:", ignore(case))]
     VariableAssignEnd,
 
-    #[regex(r#"[a-zA-Z0-9_]+[ \t]*=[ \t]*(?:[a-zA-Z0-9_]+|<[a-zA-Z0-9_]+>|"[^"]*");?"#, |lex| lex.slice().split('=').next().unwrap().trim(), ignore(case))]
-    VariableRead(&'a str),
-
     #[token("hack_the_planet", ignore(case))]
     HackStmt,
 
@@ -75,10 +72,16 @@ pub enum Token<'a> {
     #[token("`")]
     Backtick,
 
+    #[token("=")]
+    Equals,
+
+    #[token(";")]
+    Semicolon,
+
     #[regex(r#"[a-zA-Z]+([-.'_][a-zA-Z]+)*"#, callback = |lex| lex.slice())]
     Word(&'a str),
 
-    #[regex(r#"[[\p{P}\p{S}]&&[^"`]]+"#, callback = |lex| lex.slice())]
+    #[regex(r#"[[\p{P}\p{S}]&&[^"`;=]]+"#, callback = |lex| lex.slice())]
     Punctuation(&'a str),
 }
 
@@ -566,7 +569,29 @@ mod tests {
     fn test_variable_read() {
         let mut lex = Token::lexer("imminently = 123;");
 
-        let expected = vec![Token::VariableRead("imminently")];
+        let expected = vec![
+            Token::Adverb("imminently"),
+            Token::Equals,
+            Token::IntegerLiteral("123"),
+            Token::Semicolon,
+        ];
+        for tok in expected {
+            assert_eq!(lex.next(), Some(Ok(tok)));
+        }
+    }
+
+    #[test]
+    fn test_variable_read_stack() {
+        let mut lex = Token::lexer("imminently = <stack>;");
+
+        let expected = vec![
+            Token::Adverb("imminently"),
+            Token::Equals,
+            Token::Punctuation("<"),
+            Token::Word("stack"),
+            Token::Punctuation(">"),
+            Token::Semicolon,
+        ];
         for tok in expected {
             assert_eq!(lex.next(), Some(Ok(tok)));
         }

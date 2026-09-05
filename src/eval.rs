@@ -152,7 +152,7 @@ impl<'a> Evaluator<'a> {
                 self.eval_var_assign(ident, maybe_variable_store, span)?;
                 Ok(false)
             }
-            (Node::VariableRead(ident), span) => {
+            (Node::VariableRead(ident, _), span) => {
                 self.eval_var_read(ident, maybe_variable_store.as_deref(), span)?;
                 Ok(false)
             }
@@ -937,7 +937,10 @@ fn collect_values(
             }
             (Node::Word(_), _) => (),
             (Node::VariableAssign(_), _) => (),
-            (Node::VariableRead(_), _) => (),
+            (Node::VariableRead(_, child), _) => {
+                let children = vec![(*child).as_ref().clone()];
+                line_to_literal.extend(collect_values(&children, line_index));
+            }
             (Node::Hack(_, _), _) => (),
             (Node::FocusChange(_), _) => (),
         }
@@ -1007,7 +1010,7 @@ fn collect_idents(
             (Node::FuncCall(_, _), _span) => (),
             (Node::ValueRef(_), _span) => (),
             (Node::Hack(_, _), _span) => (),
-            (Node::VariableRead(_), _span) => (),
+            (Node::VariableRead(_, child), _span) => (),
             (Node::VariableAssign(_), _span) => (),
             (Node::FocusChange(_), _span) => (),
             _ => {
@@ -1347,16 +1350,29 @@ mod tests {
             Node::Story(
                 "testly".to_string(),
                 vec![
-                    Node::VariableRead("oflly".to_string()).spanned(0..0),
-                    Node::VariableRead("oflly".to_string()).spanned(0..0),
-                    Node::VariableRead("oflly".to_string()).spanned(0..0),
+                    Node::VariableRead(
+                        "oflly".to_string(),
+                        Box::new(Node::IntLiteral(0).spanned(0..0)),
+                    )
+                    .spanned(0..0),
+                    Node::VariableRead(
+                        "oflly".to_string(),
+                        Box::new(Node::IntLiteral(0).spanned(0..0)),
+                    )
+                    .spanned(0..0),
+                    Node::VariableRead(
+                        "oflly".to_string(),
+                        Box::new(Node::IntLiteral(0).spanned(0..0)),
+                    )
+                    .spanned(0..0),
                     Node::VariableAssign("folly".to_string()).spanned(0..0),
                 ],
             )
             .spanned(0..0),
         ];
+        let index = LineIndex::new("" /* XXX */, "test.ks");
 
-        let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
+        let mut evaluator = Evaluator::new(nodes, Some(index));
         evaluator.push(Value::Integer(42));
         let res = evaluator.eval_script();
         assert_eq!(

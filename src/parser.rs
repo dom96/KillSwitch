@@ -24,7 +24,7 @@ pub enum Node {
     Adverb(String),  // can be referenced by ValueRef
     Word(String),
     VariableAssign(String),
-    VariableRead(String),
+    VariableRead(String, Box<Spanned<Self>>),
     Hack(String, Option<String>),
     FocusChange(isize),
 }
@@ -61,7 +61,9 @@ impl fmt::Display for Node {
             Node::Adverb(adverb) => write!(f, "Adverb({})", adverb),
             Node::Word(w) => write!(f, "Word({})", w),
             Node::VariableAssign(adverb) => write!(f, "VariableAssign({})", adverb),
-            Node::VariableRead(ident) => write!(f, "VariableRead({})", ident),
+            Node::VariableRead(ident, children) => {
+                write!(f, "VariableRead({}, {:?})", ident, children)
+            }
             Node::Hack(a, b) => write!(f, "Hack({}, {:?})", a, b),
             Node::FocusChange(t) => write!(f, "FocusChange({})", t),
         }
@@ -111,7 +113,12 @@ where
         )
     });
 
-    let ignored = any().filter(|t| matches!(t, Token::NewLine | Token::Punctuation(_)));
+    let ignored = any().filter(|t| {
+        matches!(
+            t,
+            Token::NewLine | Token::Punctuation(_) | Token::Equals | Token::Semicolon
+        )
+    });
 
     let single_node = recursive(|value| {
         let word_like_atom = select! {
@@ -127,7 +134,6 @@ where
             Token::Word(w) = e => Node::Word(w.to_owned()).spanned(e.span()),
             Token::Return = e => Node::FuncReturn.spanned(e.span()),
             Token::ValueRef(line_count) = e => Node::ValueRef(line_count).spanned(e.span()),
-            Token::VariableRead(ident) = e => Node::VariableRead(ident.into()).spanned(e.span()),
         }
         .or(word_like_atom);
 
@@ -198,6 +204,19 @@ where
                 }
             });
 
+        let any_punctuation = select! { Token::Punctuation(_) => () };
+        let surrounded_atom = word_like_atom
+            .clone()
+            .delimited_by(any_punctuation, any_punctuation);
+
+        let variable_read = adverb_to_ident
+            .then_ignore(just(Token::Equals))
+            .then(surrounded_atom.or(word_like_atom))
+            .then_ignore(just(Token::Semicolon))
+            .map_with(|(ident, child), e| {
+                Node::VariableRead(ident.to_owned(), Box::new(child)).spanned(e.span())
+            });
+
         let hack_stmt = just(Token::HackStmt)
             .then(word_like.repeated().collect::<Vec<_>>())
             .try_map_with(|(_, words), e| {
@@ -249,7 +268,11 @@ where
             .then_ignore(adverb_to_ident)
             .map_with(|(ident, stmts), e| Node::Chapter(ident.to_owned(), stmts).spanned(e.span()));
 
-        atom.or(func_call)
+        // TODO: We have a lot of rules that start by checking for `adverb`. This isn't
+        // efficient. Consider "left-factoring" this.
+        variable_read
+            .or(atom)
+            .or(func_call)
             .or(variable_assignment)
             .or(hack_stmt)
             .or(story)
@@ -507,8 +530,29 @@ mod tests {
         let result = parsed_result.into_result().unwrap();
 
         let expected = [
-            Node::VariableRead("imminently".to_string()).spanned(0..17),
+            Node::VariableRead(
+                "imminently".to_string(),
+                Box::new(Node::IntLiteral(123).spanned(13..16)),
+            )
+            .spanned(0..17),
             Node::Word("word".to_owned()).spanned(18..22),
+        ];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_var_read_stack() {
+        let parsed_result = lex_to_parsed_result("imminently = <stack>;\nword");
+
+        let result = parsed_result.into_result().unwrap();
+
+        let expected = [
+            Node::VariableRead(
+                "imminently".to_string(),
+                Box::new(Node::Word("stack".to_owned()).spanned(14..19)),
+            )
+            .spanned(0..21),
+            Node::Word("word".to_owned()).spanned(22..26),
         ];
         assert_eq!(result, expected);
     }
