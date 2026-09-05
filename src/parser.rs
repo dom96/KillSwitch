@@ -243,15 +243,18 @@ where
             .repeated()
             .at_least(1)
             .collect::<Vec<_>>()
-            .then(just(Token::FocusDecrement).or_not())
+            .then(just(Token::FocusDecrement))
             .map_with(|(t, _), e| Node::FocusChange(t.len() as isize).spanned(e.span()));
 
         let focus_incr = just(Token::Backtick)
             .repeated()
             .at_least(1)
             .collect::<Vec<_>>()
-            .then(just(Token::FocusIncrement).or_not())
+            .then(just(Token::FocusIncrement))
             .map_with(|(t, _), e| Node::FocusChange(-(t.len() as isize)).spanned(e.span()));
+
+        let backtick =
+            just(Token::Backtick).map_with(|_, e| Node::Word("`".to_owned()).spanned(e.span()));
 
         let node_list = value
             .clone()
@@ -283,6 +286,7 @@ where
             .or(chapter)
             .or(focus_decr)
             .or(focus_incr)
+            .or(backtick)
     });
 
     single_node
@@ -291,6 +295,12 @@ where
         .allow_trailing()
         .collect::<Vec<_>>()
         .then_ignore(end())
+        .map(|nodes| {
+            nodes
+                .into_iter()
+                .filter(|n| !matches!(&n.0, Node::Word(s) if s == "`"))
+                .collect::<Vec<_>>()
+        })
 }
 
 pub fn lex_to_parsed_result(code: &str) -> ParseResult<Vec<Spanned<Node>>, Rich<'_, Token<'_>>> {
@@ -625,6 +635,37 @@ mod tests {
                 Box::new(Node::Word("stack".to_owned()).spanned(53..58)),
             )
             .spanned(41..60),
+        ];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_random_backticks() {
+        let parsed_result = lex_to_parsed_result("Foo `rm -rf /` bar");
+
+        let result = parsed_result.into_result().unwrap();
+
+        let expected = [
+            Node::Word("Foo".to_owned()).spanned(0..3),
+            Node::FuncReturn.spanned(5..13),
+            Node::Word("bar".to_owned()).spanned(15..18),
+        ];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_var_read_then_focus_change() {
+        let parsed_result = lex_to_parsed_result("intently = <stack>;```<content>");
+
+        let result = parsed_result.into_result().unwrap();
+
+        let expected = [
+            Node::VariableRead(
+                "intently".to_owned(),
+                Box::new(Node::Word("stack".to_owned()).spanned(12..17)),
+            )
+            .spanned(0..19),
+            Node::FocusChange(3).spanned(19..31),
         ];
         assert_eq!(result, expected);
     }

