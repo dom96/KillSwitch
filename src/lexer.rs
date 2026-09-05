@@ -50,7 +50,7 @@ pub enum Token<'a> {
     #[token("</content>")]
     FocusIncrement,
 
-    #[regex(r"([a-zA-Z]+ly(\p{P}+)?|(fast|hard|early|late|soon|far|slow|quick|loud|tight|right|sharp|cheap|clean|deep|high|beyond|within))", callback = |lex| lex.slice(), ignore(case))]
+    #[regex(r"([a-zA-Z]+ly|(fast|hard|early|late|soon|far|slow|quick|loud|tight|right|sharp|cheap|clean|deep|high|beyond|within))", callback = |lex| lex.slice(), ignore(case))]
     Adverb(&'a str),
 
     #[regex(r"value ([0-9]+) line(s)? (below|above)", parse_number)]
@@ -78,10 +78,13 @@ pub enum Token<'a> {
     #[token(";")]
     Semicolon,
 
+    #[token(".")]
+    Period,
+
     #[regex(r#"[a-zA-Z]+([-.'_][a-zA-Z]+)*"#, callback = |lex| lex.slice())]
     Word(&'a str),
 
-    #[regex(r#"[[\p{P}\p{S}]&&[^"`;=]]+"#, callback = |lex| lex.slice())]
+    #[regex(r#"[[\p{P}\p{S}]&&[^"`;=.]]+"#, callback = |lex| lex.slice())]
     Punctuation(&'a str),
 }
 

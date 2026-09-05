@@ -232,6 +232,7 @@ It's a good call to sprinkle these statements throughout the code, to ensure the
 - the `[other words and punctuation]` has to be exactly the char count of `[anagram of adverb]` words long or
   the word count has to match the number of focused letters in `[anagram of adverb]`
 - if you keep `[anagram of adverb]` an adverb (i.e. end it with "ly") then you can position it anywhere in `[other words and punctuation]`
+- "punctuation" can include anything except `.` which terminates the word list.
 
 For example:
 
