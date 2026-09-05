@@ -76,6 +76,7 @@ static BUILT_INS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
     set.insert("equally");
     set.insert("alternatively");
     set.insert("conjointly");
+    set.insert("focally");
     // TODO: Add more.
     set
 });
@@ -293,6 +294,29 @@ impl<'a> Evaluator<'a> {
                             .read_line(&mut input)
                             .expect("Failed to read line");
                         self.push(Value::Text(input.trim_end().to_string()));
+                        return Ok(());
+                    }
+                    "focally" => {
+                        let val = self.pop();
+                        match val {
+                            Some(Value::Integer(v)) => {
+                                if (0..127).contains(&v) {
+                                    self.push(Value::Text((v as u8 as char).into()));
+                                } else {
+                                    return Err(EvalError {
+                                        message: format!("Non-ASCII integer on stack, got {}", v),
+                                        span: span.clone(),
+                                    });
+                                }
+                            }
+                            _ => {
+                                return Err(EvalError {
+                                    message: "Need integer value on stack for `focally`"
+                                        .to_string(),
+                                    span: span.clone(),
+                                });
+                            }
+                        }
                         return Ok(());
                     }
                     "multiply" => {
