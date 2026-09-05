@@ -218,14 +218,16 @@ where
 
         let focus_decr = just(Token::Backtick)
             .repeated()
+            .at_least(1)
             .collect::<Vec<_>>()
-            .then(just(Token::FocusDecrement))
+            .then(just(Token::FocusDecrement).or_not())
             .map_with(|(t, _), e| Node::FocusChange(t.len() as isize).spanned(e.span()));
 
         let focus_incr = just(Token::Backtick)
             .repeated()
+            .at_least(1)
             .collect::<Vec<_>>()
-            .then(just(Token::FocusIncrement))
+            .then(just(Token::FocusIncrement).or_not())
             .map_with(|(t, _), e| Node::FocusChange(-(t.len() as isize)).spanned(e.span()));
 
         let node_list = value
