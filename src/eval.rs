@@ -212,7 +212,7 @@ impl<'a> Evaluator<'a> {
         // For now just restrict nested loops.
         // TODO: In future we won't be able to do this, as it will limit loops too much. Print stack on Ctrl+C instead.
         // TODO: Also print the stacks here nicely.
-        if self.nested_func_calls.len() > 100 {
+        if self.nested_func_calls.len() > 1000 {
             println!("{:?}", self.nested_func_calls);
             return Err(EvalError {
                 message: "Infinite loop detected".to_string(),
