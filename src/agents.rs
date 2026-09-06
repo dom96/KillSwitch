@@ -7,15 +7,33 @@ fn is_agent_parent_process() -> bool {
     let mut current_pid = get_current_pid().ok();
 
     let agent_names = [
-        "cursor", "aider", "cline", "claude", "goose", "gemini", "copilot", "windsurf", "devin",
-        "amp", "roo", "cline", "v0", "opencode",
+        "cursor",
+        "aider",
+        "cline",
+        "claude",
+        "goose",
+        "gemini",
+        "copilot",
+        "windsurf",
+        "devin",
+        "amp",
+        "roo",
+        "cline",
+        "v0",
+        "opencode",
+        "pi",
+        "trae",
+        "augment",
+        "repl",
+        "replit",
+        "antigravity",
     ];
 
     while let Some(pid) = current_pid {
         if let Some(process) = sys.process(pid) {
             let name = process.name().to_string_lossy().to_lowercase();
 
-            if agent_names.iter().any(|&agent| name.contains(agent)) {
+            if agent_names.iter().any(|&agent| name == agent) {
                 return true;
             }
 
