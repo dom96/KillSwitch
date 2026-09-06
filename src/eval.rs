@@ -728,19 +728,6 @@ impl<'a> Evaluator<'a> {
                         // adverb. Then push that as the value.
                         let focus_var_value = self.get_focus_var(variable_store);
                         let value = count_letters_in(focus_var_value, a) as i64;
-                        // We print out a warning if this was chosen, because this behaviour is pretty surprising.
-                        // Especially when it gets chosen randomly (as I have found).
-                        let nodes_len = nodes.len();
-                        self.print_warning(
-                            "Possible gotcha",
-                            if nodes_len > 1 as usize {
-                                "Value deduced from Adverb which was chosen at random"
-                            } else {
-                                "Value deduced from Adverb"
-                            },
-                            "W101",
-                            span,
-                        );
                         Value::Integer(value)
                     }
                     Some(Node::ValueRef(value)) => {
@@ -764,6 +751,23 @@ impl<'a> Evaluator<'a> {
                         panic!("Unsupported Node being pushed onto stack");
                     }
                 };
+
+                // We print out a warning if this was chosen, because this behaviour is pretty surprising.
+                // Especially when it gets chosen randomly (as I have found).
+                let nodes_len = nodes.len();
+                if nodes_len > 1 as usize {
+                    let msg = match node {
+                        Some(Node::Adverb(a)) => {
+                            format!(
+                                "Value deduced from Adverb (\"{}\") which was chosen at random",
+                                a
+                            )
+                        }
+                        _ => "Value deduced was chosen at random".to_owned(),
+                    };
+                    self.print_warning("Possible gotcha", &msg, "W101", span);
+                }
+
                 self.stack.push(value);
                 Ok(())
             }
