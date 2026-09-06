@@ -2,13 +2,12 @@
 // Licensed under AGPLv3.
 
 use KillSwitch::{
-    eval::{EvalError, Evaluator, LineIndex},
+    eval::{Evaluator, LineIndex},
     parser::lex_to_parsed_result,
 };
 use clap::{Args, Parser, Subcommand};
 use std::fs;
 use std::path::PathBuf;
-use std::process;
 
 use ariadne::{Color, Label, Report, ReportKind, Source};
 

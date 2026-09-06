@@ -745,7 +745,9 @@ impl<'a> Evaluator<'a> {
                     }
                     Some(Node::ValueRef(value)) => {
                         // We treat the number inside a value ref as a standard integer
-                        Value::Integer(*value as i64)
+                        // For "above" refs we get a negative number, so we need to make
+                        // sure it's positive.
+                        Value::Integer((*value as i64).abs())
                     }
                     None => {
                         let msg = if lines_below < 0 {
@@ -1130,7 +1132,7 @@ fn collect_idents(
             (Node::FuncCall(_, _), _span) => (),
             (Node::ValueRef(_), _span) => (),
             (Node::Hack(_, _), _span) => (),
-            (Node::VariableRead(_, child), _span) => (),
+            (Node::VariableRead(_, _child), _span) => (),
             (Node::VariableAssign(_), _span) => (),
             (Node::FocusChange(_), _span) => (),
             _ => {
@@ -1342,6 +1344,17 @@ mod tests {
         let mut evaluator = Evaluator::new(nodes, Some(index));
         let res = evaluator.eval_script();
         assert_eq!(res, Ok(vec![Value::Integer(42)]));
+    }
+
+    #[test]
+    fn test_value_push_using_above() {
+        let src = "This story starts testly.\nThere is a value 2 lines below.\nLine one\nThere is something with a value 2 lines above.\nLine one\nMy secret value is 1234\nThis story ends testly.";
+        let nodes = lex_to_parsed_result(src).into_result().unwrap();
+        let index = LineIndex::new(src, "test.ks");
+
+        let mut evaluator = Evaluator::new(nodes, Some(index));
+        let res = evaluator.eval_script();
+        assert_eq!(res, Ok(vec![Value::Integer(2), Value::Integer(2)]));
     }
 
     #[test]

