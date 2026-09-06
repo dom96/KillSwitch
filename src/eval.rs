@@ -1030,14 +1030,18 @@ fn collect_values(
                 line_to_literal.extend(collect_values(children, line_index));
             }
             (Node::FuncCall(ident, words), span) => {
-                let line = line_index
-                    .as_ref()
-                    .expect("Evaluator needs LineIndex")
-                    .get_line(span.start);
-                line_to_literal
-                    .entry(line)
-                    .or_default()
-                    .push(Node::Adverb(ident.to_owned()));
+                // Do not add `debuggably` since we use it for
+                // debugging. We want it to have no side effects.
+                if ident != "debuggably" {
+                    let line = line_index
+                        .as_ref()
+                        .expect("Evaluator needs LineIndex")
+                        .get_line(span.start);
+                    line_to_literal
+                        .entry(line)
+                        .or_default()
+                        .push(Node::Adverb(ident.to_owned()));
+                }
                 line_to_literal.extend(collect_values(words, line_index));
             }
             (Node::FuncReturn, _) => (),
