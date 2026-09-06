@@ -1,12 +1,12 @@
 // Copyright © 2026 Dominik Picheta.
 // Licensed under AGPLv3.
 
-use KillSwitch::{
+use clap::{Args, Parser, Subcommand};
+use killswitch::{
     agents::{generate_agent_error, is_run_by_agent},
     eval::{Evaluator, LineIndex, sort_ident},
     parser::lex_to_parsed_result,
 };
-use clap::{Args, Parser, Subcommand};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::PathBuf;

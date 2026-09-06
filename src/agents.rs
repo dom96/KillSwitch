@@ -30,6 +30,7 @@ fn is_agent_parent_process() -> bool {
 
 pub fn is_run_by_agent() -> bool {
     // TODO: Use one of the env detecting packages too.
+    // Maybe https://github.com/sunsided/detect-coding-agent/tree/main?
     is_agent_parent_process()
 }
 
