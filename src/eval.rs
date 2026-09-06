@@ -77,6 +77,7 @@ static BUILT_INS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
     set.insert("alternatively");
     set.insert("conjointly");
     set.insert("focally");
+    set.insert("modularly");
     // TODO: Add more.
     set
 });
@@ -583,6 +584,38 @@ impl<'a> Evaluator<'a> {
                                     message: format!(
                                         "Need two strings on stack for `conjointly`, got {:?} {:?}",
                                         b, a
+                                    ),
+                                    span: span.clone(),
+                                });
+                            }
+                        }
+                        return Ok(());
+                    }
+                    "modularly" => {
+                        let b = self.pop();
+                        let a = self.pop();
+                        if a.is_none() || b.is_none() {
+                            return Err(EvalError {
+                                message: "Need two values on stack for `modularly`".to_string(),
+                                span: span.clone(),
+                            });
+                        }
+
+                        match (&a, &b) {
+                            (Some(Value::Integer(a_val)), Some(Value::Integer(b_val))) => {
+                                if *b_val == 0 {
+                                    return Err(EvalError {
+                                        message: "Received divisor of 0 in `modularly`".to_string(),
+                                        span: span.clone(),
+                                    });
+                                }
+                                self.push(Value::Integer(a_val % b_val));
+                            }
+                            _ => {
+                                return Err(EvalError {
+                                    message: format!(
+                                        "Invalid types for `modularly`, got {:?} {:?}",
+                                        a, b
                                     ),
                                     span: span.clone(),
                                 });
