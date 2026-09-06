@@ -4,11 +4,17 @@ This repo contains the design and reference implementation of the KillSwitch pro
 
 - [SPEC.md](SPEC.md) - The specification for the KillSwitch programming language.
 
+### Installation
+
+```
+$ cargo install --path .
+```
+
 ### Usage
 
 ```
 $ killswitch run tests/fizzbuzz.ks
-$ cargo run -- run tests/fizzbuzz.ks
+$ cargo run -- run tests/fizzbuzz.ks # if not installed
 ```
 
 <details>
