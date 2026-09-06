@@ -152,8 +152,8 @@ impl<'a> Evaluator<'a> {
         variable_store: &mut VariableStore,
     ) -> Result<bool, EvalError> {
         match node {
-            (Node::FuncCall(ident, words), span) => {
-                self.eval_func_call(ident, words.len(), variable_store, span)?;
+            (Node::FuncCall(ident, nodes), span) => {
+                self.eval_func_call(ident, count_words(nodes), variable_store, span)?;
                 Ok(false)
             }
             (Node::ValueRef(lines_below), span) => {
@@ -1108,6 +1108,24 @@ fn collect_idents(
     Ok(story)
 }
 
+fn count_words(nodes: &Vec<Spanned<Node>>) -> usize {
+    // We need to handle the counting of certain words in a custom way.
+    // As an example, string literals are a single node but can contain
+    // multiple words.
+    let mut result = 0;
+    for node in nodes {
+        match node {
+            (Node::StringLiteral(s), _) => result += s.split_whitespace().count(),
+            (Node::Word(_), _) => result += 1,
+            (Node::Adverb(_), _) => result += 1,
+            (Node::FloatLiteral(_), _) => result += 1,
+            (Node::IntLiteral(_), _) => result += 1,
+            _ => panic!("Unexpected node type in count words"),
+        }
+    }
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1122,8 +1140,9 @@ mod tests {
             )
             .spanned(0..0),
         ];
+        let index = LineIndex::new("", "test.ks");
 
-        let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
+        let mut evaluator = Evaluator::new(nodes.clone(), Some(index.clone()));
         evaluator.push(Value::Integer(5));
         evaluator.push(Value::Integer(5));
         let res = evaluator.eval_script();
@@ -1140,7 +1159,9 @@ mod tests {
             .spanned(0..0),
         ];
 
-        let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
+        let index = LineIndex::new("", "test.ks");
+
+        let mut evaluator = Evaluator::new(nodes.clone(), Some(index.clone()));
         evaluator.push(Value::Integer(8));
         evaluator.push(Value::Integer(0));
         let res = evaluator.eval_script();
@@ -1157,7 +1178,9 @@ mod tests {
             .spanned(0..0),
         ];
 
-        let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
+        let index = LineIndex::new("", "test.ks");
+
+        let mut evaluator = Evaluator::new(nodes.clone(), Some(index.clone()));
         evaluator.push(Value::Integer(5));
         evaluator.push(Value::Integer(5));
         let res = evaluator.eval_script();
@@ -1185,7 +1208,9 @@ mod tests {
             .spanned(0..0),
         ];
 
-        let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
+        let index = LineIndex::new("", "test.ks");
+
+        let mut evaluator = Evaluator::new(nodes.clone(), Some(index.clone()));
         evaluator.push(Value::Integer(5));
         evaluator.push(Value::Integer(5));
         let res = evaluator.eval_script();
@@ -1203,7 +1228,9 @@ mod tests {
             Node::Chapter("testily".to_string(), vec![]).spanned(0..0),
         ];
 
-        let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
+        let index = LineIndex::new("", "test.ks");
+
+        let mut evaluator = Evaluator::new(nodes.clone(), Some(index.clone()));
         let res = evaluator.eval_script();
         assert_eq!(
             res,
@@ -1224,7 +1251,9 @@ mod tests {
             .spanned(0..0),
         ];
 
-        let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
+        let index = LineIndex::new("", "test.ks");
+
+        let mut evaluator = Evaluator::new(nodes.clone(), Some(index.clone()));
         evaluator.push(Value::Integer(5));
         evaluator.push(Value::Integer(10));
         let res = evaluator.eval_script();
@@ -1244,7 +1273,9 @@ mod tests {
             Node::Chapter("testily".to_string(), vec![]).spanned(0..0),
         ];
 
-        let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
+        let index = LineIndex::new("", "test.ks");
+
+        let mut evaluator = Evaluator::new(nodes.clone(), Some(index.clone()));
         evaluator.push(Value::Integer(5));
         evaluator.push(Value::Integer(10));
         let res = evaluator.eval_script();
@@ -1418,7 +1449,9 @@ mod tests {
             .spanned(0..0),
         ];
 
-        let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
+        let index = LineIndex::new("", "test.ks");
+
+        let mut evaluator = Evaluator::new(nodes.clone(), Some(index.clone()));
         evaluator.push(Value::Integer(1));
         evaluator.push(Value::Integer(5));
         let res = evaluator.eval_script();
@@ -1429,6 +1462,36 @@ mod tests {
                 span: 0..0
             })
         );
+    }
+
+    #[test]
+    fn test_func_call_word_count_str() {
+        let nodes = vec![
+            Node::Story(
+                "testly".to_string(),
+                vec![
+                    Node::FuncCall(
+                        "fyl".to_string(),
+                        vec![Node::StringLiteral("multiple words here".to_owned()).spanned(0..0)],
+                    )
+                    .spanned(0..0),
+                ],
+            )
+            .spanned(0..0),
+            Node::Chapter(
+                "fly".to_string(),
+                vec![Node::FuncCall("miltypul".to_string(), vec![]).spanned(0..0)],
+            )
+            .spanned(0..0),
+        ];
+
+        let index = LineIndex::new("", "test.ks");
+
+        let mut evaluator = Evaluator::new(nodes.clone(), Some(index.clone()));
+        evaluator.push(Value::Integer(6));
+        evaluator.push(Value::Integer(5));
+        let res = evaluator.eval_script();
+        assert_eq!(res, Ok(vec![Value::Integer(30)]));
     }
 
     #[test]
@@ -1492,7 +1555,9 @@ mod tests {
             .spanned(0..0),
         ];
 
-        let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
+        let index = LineIndex::new("", "test.ks");
+
+        let mut evaluator = Evaluator::new(nodes.clone(), Some(index.clone()));
         evaluator.push(Value::Integer(5));
         evaluator.push(Value::Integer(5));
         evaluator.push(Value::Integer(0));
@@ -1515,7 +1580,9 @@ mod tests {
             .spanned(0..0),
         ];
 
-        let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
+        let index = LineIndex::new("", "test.ks");
+
+        let mut evaluator = Evaluator::new(nodes.clone(), Some(index.clone()));
         evaluator.push(Value::Integer(5));
         evaluator.push(Value::Integer(5));
         evaluator.push(Value::Integer(1));
@@ -1533,7 +1600,9 @@ mod tests {
             .spanned(0..0),
         ];
 
-        let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
+        let index = LineIndex::new("", "test.ks");
+
+        let mut evaluator = Evaluator::new(nodes.clone(), Some(index.clone()));
         evaluator.push(Value::Integer(5));
         evaluator.push(Value::Integer(1));
         let res = evaluator.eval_script();
@@ -1550,7 +1619,9 @@ mod tests {
             .spanned(0..0),
         ];
 
-        let mut evaluator = Evaluator::new(nodes, None /* LineIndex */);
+        let index = LineIndex::new("", "test.ks");
+
+        let mut evaluator = Evaluator::new(nodes.clone(), Some(index.clone()));
         evaluator.push(Value::Integer(5));
         evaluator.push(Value::Integer(1));
         let res = evaluator.eval_script();
