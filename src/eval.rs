@@ -78,6 +78,7 @@ static BUILT_INS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
     set.insert("conjointly");
     set.insert("focally");
     set.insert("modularly");
+    set.insert("oppositely");
     // TODO: Add more.
     set
 });
@@ -314,6 +315,27 @@ impl<'a> Evaluator<'a> {
                                 return Err(EvalError {
                                     message: "Need integer value on stack for `focally`"
                                         .to_string(),
+                                    span: span.clone(),
+                                });
+                            }
+                        }
+                        return Ok(());
+                    }
+                    "oppositely" => {
+                        let val = self.pop();
+                        match val {
+                            Some(Value::Integer(0)) => {
+                                self.push(Value::Integer(1));
+                            }
+                            Some(Value::Integer(1)) => {
+                                self.push(Value::Integer(0));
+                            }
+                            _ => {
+                                return Err(EvalError {
+                                    message: format!(
+                                        "Need boolean integer value on stack for `oppositely`, got {:?}",
+                                        val
+                                    ),
                                     span: span.clone(),
                                 });
                             }

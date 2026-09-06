@@ -382,6 +382,7 @@ For example, we could have a built-in variable which determines the number of wo
 - `equally` - same as above, but performs equality check
 - `alternatively` - same as above, but performs boolean OR operation
 - `concurrently` - same as above, but performs boolean AND operation
+- `oppositely` - pops one value off stack, performs boolean NOT operation
 
 #### Stack
 
