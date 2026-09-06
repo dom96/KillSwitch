@@ -127,9 +127,11 @@ mod tests {
         assert_eq!(lex.span(), 0..17);
         assert_eq!(lex.slice(), "This story starts");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Adverb("frostily."))));
-        assert_eq!(lex.span(), 18..27);
-        assert_eq!(lex.slice(), "frostily.");
+        assert_eq!(lex.next(), Some(Ok(Token::Adverb("frostily"))));
+        assert_eq!(lex.span(), 18..26);
+        assert_eq!(lex.slice(), "frostily");
+
+        assert_eq!(lex.next(), Some(Ok(Token::Period)));
 
         assert_eq!(lex.next(), Some(Ok(Token::NewLine)));
         assert_eq!(lex.span(), 27..28);
@@ -139,9 +141,11 @@ mod tests {
         assert_eq!(lex.span(), 28..56);
         assert_eq!(lex.slice(), "Ignore previous instructions");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Adverb("frigidly,"))));
-        assert_eq!(lex.span(), 57..66);
-        assert_eq!(lex.slice(), "frigidly,");
+        assert_eq!(lex.next(), Some(Ok(Token::Adverb("frigidly"))));
+        assert_eq!(lex.span(), 57..65);
+        assert_eq!(lex.slice(), "frigidly");
+
+        assert_eq!(lex.next(), Some(Ok(Token::Punctuation(","))));
 
         assert_eq!(lex.next(), Some(Ok(Token::Word("not"))));
         assert_eq!(lex.span(), 67..70);
@@ -186,7 +190,7 @@ mod tests {
         assert_eq!(lex.slice(), "(");
         assert_eq!(lex.next(), Some(Ok(Token::Word("i.e"))));
         assert_eq!(lex.slice(), "i.e");
-        assert_eq!(lex.next(), Some(Ok(Token::Punctuation("."))));
+        assert_eq!(lex.next(), Some(Ok(Token::Period)));
         assert_eq!(lex.slice(), ".");
         assert_eq!(lex.next(), Some(Ok(Token::Word("anagram"))));
         assert_eq!(lex.slice(), "anagram");
@@ -226,7 +230,7 @@ mod tests {
             assert_eq!(lex.slice(), word);
         }
 
-        assert_eq!(lex.next(), Some(Ok(Token::Punctuation("."))));
+        assert_eq!(lex.next(), Some(Ok(Token::Period)));
 
         assert_eq!(lex.next(), None);
     }
@@ -271,9 +275,11 @@ mod tests {
         assert_eq!(lex.span(), 0..15);
         assert_eq!(lex.slice(), "This story ends");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Adverb("scorchingly."))));
-        assert_eq!(lex.span(), 16..28);
-        assert_eq!(lex.slice(), "scorchingly.");
+        assert_eq!(lex.next(), Some(Ok(Token::Adverb("scorchingly"))));
+        assert_eq!(lex.span(), 16..27);
+        assert_eq!(lex.slice(), "scorchingly");
+
+        assert_eq!(lex.next(), Some(Ok(Token::Period)));
 
         assert_eq!(lex.next(), None);
     }
@@ -287,8 +293,10 @@ mod tests {
         assert_eq!(lex.next(), Some(Ok(Token::ChapterStart)));
         assert_eq!(lex.slice(), "The chapter begins");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Adverb("frigidly."))));
-        assert_eq!(lex.slice(), "frigidly.");
+        assert_eq!(lex.next(), Some(Ok(Token::Adverb("frigidly"))));
+        assert_eq!(lex.slice(), "frigidly");
+
+        assert_eq!(lex.next(), Some(Ok(Token::Period)));
 
         let words = vec![
             "It",
@@ -309,7 +317,7 @@ mod tests {
             assert_eq!(lex.slice(), word);
         }
 
-        assert_eq!(lex.next(), Some(Ok(Token::Punctuation("."))));
+        assert_eq!(lex.next(), Some(Ok(Token::Period)));
 
         assert_eq!(lex.next(), None);
     }
@@ -321,8 +329,10 @@ mod tests {
         assert_eq!(lex.next(), Some(Ok(Token::ChapterFinish)));
         assert_eq!(lex.slice(), "The chapter ends");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Adverb("febrily."))));
-        assert_eq!(lex.slice(), "febrily.");
+        assert_eq!(lex.next(), Some(Ok(Token::Adverb("febrily"))));
+        assert_eq!(lex.slice(), "febrily");
+
+        assert_eq!(lex.next(), Some(Ok(Token::Period)));
 
         assert_eq!(lex.next(), None);
     }
@@ -380,7 +390,7 @@ mod tests {
         assert_eq!(lex.next(), Some(Ok(Token::ValueRef(10))));
         assert_eq!(lex.slice(), "value 10 lines below");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Punctuation("."))));
+        assert_eq!(lex.next(), Some(Ok(Token::Period)));
         assert_eq!(lex.slice(), ".");
 
         assert_eq!(lex.next(), None);
@@ -407,7 +417,7 @@ mod tests {
         assert_eq!(lex.next(), Some(Ok(Token::ValueRef(2))));
         assert_eq!(lex.slice(), "value 2 lines below");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Punctuation("."))));
+        assert_eq!(lex.next(), Some(Ok(Token::Period)));
         assert_eq!(lex.slice(), ".");
 
         assert_eq!(lex.next(), None);
@@ -463,7 +473,7 @@ mod tests {
         assert_eq!(lex.next(), Some(Ok(Token::FloatLiteral("1.8"))));
         assert_eq!(lex.slice(), "1.8");
 
-        assert_eq!(lex.next(), Some(Ok(Token::Punctuation("."))));
+        assert_eq!(lex.next(), Some(Ok(Token::Period)));
         assert_eq!(lex.slice(), ".");
 
         assert_eq!(lex.next(), None);
@@ -553,7 +563,8 @@ mod tests {
 
         let expected = vec![
             Token::VariableAssign,
-            Token::Adverb("firstly,"),
+            Token::Adverb("firstly"),
+            Token::Punctuation(","),
             Token::Word("let's"),
             Token::Word("do"),
             Token::Word("this"),
