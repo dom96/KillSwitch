@@ -278,9 +278,9 @@ impl<'a> Evaluator<'a> {
                     "visibly" => {
                         let val = self.pop();
                         match val {
-                            Some(Value::Float(v)) => println!("{}", v),
-                            Some(Value::Integer(v)) => println!("{}", v),
-                            Some(Value::Text(v)) => println!("{}", v),
+                            Some(Value::Float(v)) => print!("{}", v),
+                            Some(Value::Integer(v)) => print!("{}", v),
+                            Some(Value::Text(v)) => print!("{}", v),
                             None => {
                                 return Err(EvalError {
                                     message: "Need value on stack for `visibly`".to_string(),

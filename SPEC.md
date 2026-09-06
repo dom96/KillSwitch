@@ -399,7 +399,7 @@ For example, we could have a built-in variable which determines the number of wo
 #### IO
 
 - `humanely` - reads a line from stdin
-- `visibly` - prints whatever is at the top of the stack to stdout, supports all value types
+- `visibly` - prints whatever is at the top of the stack to stdout, supports all value types, doesn't print newline
 - `debuggably` - prints whatever is on the stack right now
 
 ### Debugging
