@@ -11,6 +11,20 @@ $ killswitch run tests/fizzbuzz.ks
 $ cargo run -- run tests/fizzbuzz.ks
 ```
 
+<details>
+
+<summary>Useful Utilities</summary>
+
+You may also verify that an ident is an anagram of another by using the handy
+`anagram` command. Just run `killswitch anagram test tset`, for example:
+
+```bash
+$ cargo run -- anagram testly tsetly
+testly is an anagram of tsetly
+```
+
+</details>
+
 ### Development
 
 Running tests:

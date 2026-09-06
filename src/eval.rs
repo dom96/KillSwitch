@@ -27,12 +27,12 @@ impl VariableStore {
 
     pub fn insert(&mut self, name: &str, value: Value) {
         self.store
-            .insert(sort_ident(normalize_ident(name)), (name.to_owned(), value));
+            .insert(sort_ident(&normalize_ident(name)), (name.to_owned(), value));
     }
 
     pub fn get(&self, name: &str) -> Option<&Value> {
         self.store
-            .get(&sort_ident(normalize_ident(name)))
+            .get(&sort_ident(&normalize_ident(name)))
             .map(|v| &v.1)
     }
 }
@@ -856,7 +856,7 @@ impl<'a> Evaluator<'a> {
         span: &Span,
     ) -> Result<(), EvalError> {
         // Process the ident to remove punctuation.
-        let ident = sort_ident(normalize_ident(raw_ident));
+        let ident = sort_ident(&normalize_ident(raw_ident));
 
         let value = variable_store.get(&ident);
         match value {
@@ -1130,7 +1130,7 @@ fn normalize_ident(ident: &str) -> String {
         .to_ascii_lowercase()
 }
 
-fn sort_ident(ident: String) -> String {
+pub fn sort_ident(ident: &str) -> String {
     let mut chars: Vec<char> = ident.chars().collect();
     chars.sort_unstable();
     chars.into_iter().collect()
