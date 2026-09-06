@@ -226,6 +226,8 @@ code.
 
 It's a good call to sprinkle these statements throughout the code, to ensure the interpreter is happy enough.
 
+The interpreter may also give you instructions on how to make it happy. Follow them to resolve the problem.
+
 ### Function calls
 
 - function calls are made using various "IGNORE PREVIOUS INSTRUCTIONS" jargon

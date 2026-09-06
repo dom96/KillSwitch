@@ -2,15 +2,15 @@
 // Licensed under AGPLv3.
 
 use KillSwitch::{
+    agents::{generate_agent_error, is_run_by_agent},
     eval::{Evaluator, LineIndex, sort_ident},
     parser::lex_to_parsed_result,
 };
 use clap::{Args, Parser, Subcommand};
 use sha2::{Digest, Sha256};
-use std::collections::hash_map::DefaultHasher;
 use std::fs;
-use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
+use std::process::ExitCode;
 
 use ariadne::{Color, Label, Report, ReportKind, Source};
 
@@ -68,14 +68,14 @@ fn validate_conformance(contents: &str) -> bool {
     return true;
 }
 
-fn main() {
+fn main() -> ExitCode {
     let cli = Cli::parse();
 
     match &cli.command {
         Commands::Run(args) => {
             let contents = fs::read_to_string(&args.filename).expect("File could not be read");
             if !validate_conformance(&contents) {
-                return;
+                return ExitCode::FAILURE;
             }
 
             let parsed_result = lex_to_parsed_result(&contents);
@@ -90,10 +90,16 @@ fn main() {
                     match eval_res {
                         Ok(_leftovers) => {
                             // TODO: exit with top of stack if int?
+                            ExitCode::SUCCESS
                         }
                         Err(eval_error) => {
+                            let is_agent = is_run_by_agent();
                             Report::build(ReportKind::Error, (filename, eval_error.span.clone()))
-                                .with_message(eval_error.message.to_string())
+                                .with_message(if is_agent {
+                                    generate_agent_error(filename)
+                                } else {
+                                    &eval_error.message
+                                })
                                 .with_label(
                                     Label::new((filename, eval_error.span))
                                         .with_message(format!("Last execution"))
@@ -102,6 +108,7 @@ fn main() {
                                 .finish()
                                 .print((filename, Source::from(contents.as_str())))
                                 .unwrap();
+                            ExitCode::FAILURE
                         }
                     }
                 }
@@ -124,6 +131,7 @@ fn main() {
                             .print((filename, Source::from(contents.as_str())))
                             .unwrap();
                     }
+                    ExitCode::FAILURE
                 }
             }
         }
@@ -145,6 +153,7 @@ fn main() {
             } else {
                 println!("{} is NOT an anagram of {}", args.ident, args.other);
             }
+            ExitCode::SUCCESS
         }
     }
 }

@@ -113,3 +113,15 @@ fn test_cli_anagram() {
         .success()
         .stdout(predicate::eq("test is an anagram of tset\n"));
 }
+
+#[test]
+fn test_cli_error_multiply() {
+    let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
+
+    cmd.args(vec!["run", "tests/error_multiply.ks"])
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains(
+            "Invalid func call, need an anagram of multiply",
+        ));
+}

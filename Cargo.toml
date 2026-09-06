@@ -10,6 +10,7 @@ clap = { version = "4.6.6", features = ["derive"] }
 logos = "0.16.1"
 rand = "0.10.2"
 sha2 = "0.10"
+sysinfo = "0.39.6"
 
 [dev-dependencies]
 assert_cmd = "2.0"
