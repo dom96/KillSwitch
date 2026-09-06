@@ -624,7 +624,30 @@ impl<'a> Evaluator<'a> {
                         return Ok(());
                     }
                     "debuggably" => {
-                        println!("DEBUG: stack {:?} vars {:?}", self.stack, variable_store);
+                        let index = &self
+                            .line_index
+                            .as_ref()
+                            .expect("Need line index for warnings");
+                        let vars: String = variable_store
+                            .store
+                            .iter()
+                            .map(|f| format!("{} -> {:?}, ", f.1.0, f.1.1))
+                            .collect();
+                        let _ = Report::build(ReportKind::Advice, (index.filename, span.clone()))
+                            .with_code("W101")
+                            .with_message("Debug")
+                            .with_label(
+                                Label::new((index.filename, span.clone()))
+                                    .with_message(format!("Stack: {:?}", self.stack))
+                                    .with_color(Color::Blue),
+                            )
+                            .with_label(
+                                Label::new((index.filename, span.clone()))
+                                    .with_message(format!("Vars: {}", vars))
+                                    .with_color(Color::Blue),
+                            )
+                            .finish()
+                            .eprint((index.filename, Source::from(index.src)));
                         return Ok(());
                     }
                     &_ => unimplemented!(),
@@ -765,7 +788,7 @@ impl<'a> Evaluator<'a> {
                         }
                         _ => "Value deduced was chosen at random".to_owned(),
                     };
-                    self.print_warning("Possible gotcha", &msg, "W101", span);
+                    self.print_warning("Possible gotcha", &msg, "W102", span);
                 }
 
                 self.stack.push(value);
