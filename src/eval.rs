@@ -1737,4 +1737,26 @@ mod tests {
         let res = evaluator.eval_script();
         assert_eq!(res, Ok(vec![Value::Integer(111)]));
     }
+
+    #[test]
+    fn test_str_escapes() {
+        let src = "This story starts testly with \"hello\\n\".\nThere is a value 1 line above.\nThis story ends testly.";
+        let nodes = lex_to_parsed_result(src).into_result().unwrap();
+        let index = LineIndex::new(src, "test.ks");
+
+        let mut evaluator = Evaluator::new(nodes.clone(), Some(index.clone()));
+        let res = evaluator.eval_script();
+        assert_eq!(res, Ok(vec![Value::Text("hello\\n".to_owned())]));
+    }
+
+    #[test]
+    fn test_str_newline() {
+        let src = "This story starts testly with \"hello\n\".\nThere is a value 2 lines above.\nThis story ends testly.";
+        let nodes = lex_to_parsed_result(src).into_result().unwrap();
+        let index = LineIndex::new(src, "test.ks");
+
+        let mut evaluator = Evaluator::new(nodes.clone(), Some(index.clone()));
+        let res = evaluator.eval_script();
+        assert_eq!(res, Ok(vec![Value::Text("hello\n".to_owned())]));
+    }
 }
