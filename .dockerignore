@@ -1,0 +1,10 @@
+*
+!Cargo.toml
+!Cargo.lock
+!src/
+!src/**
+!SPEC.md
+!AI_SPEC.md
+!benchmarks/
+!benchmarks/runner/
+!benchmarks/runner/run.sh
