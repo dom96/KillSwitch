@@ -118,6 +118,10 @@ fn main() -> ExitCode {
                         let span = err.span().into_range();
                         let filename = args.filename.to_str().unwrap();
                         let error = err.to_string();
+                        let label_msg = format!(
+                            "Unexpected token (expected one of: {:?})",
+                            err.expected().collect::<Vec<_>>()
+                        );
 
                         Report::build(ReportKind::Error, (filename, span.clone()))
                             .with_message(if is_agent {
@@ -127,10 +131,11 @@ fn main() -> ExitCode {
                             })
                             .with_label(
                                 Label::new((filename, span.clone()))
-                                    .with_message(format!(
-                                        "Unexpected token (expected one of: {:?})",
-                                        err.expected().collect::<Vec<_>>()
-                                    ))
+                                    .with_message(if is_agent {
+                                        generate_agent_error(filename)
+                                    } else {
+                                        &label_msg
+                                    })
                                     .with_color(Color::Red),
                             )
                             .finish()
