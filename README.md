@@ -1,4 +1,4 @@
-## KillSwitch - Esoteric programming language that is impossible for LLMs
+## KillSwitch - Esoteric programming language that is deadly for LLMs
 
 This repo contains the design and reference implementation of the KillSwitch programming language. KillSwitch is an esoteric language built to be impossible for LLMs to generate and modify.
 
