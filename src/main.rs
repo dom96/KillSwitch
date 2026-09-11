@@ -15,11 +15,7 @@ use std::process::ExitCode;
 use ariadne::{Color, Label, Report, ReportKind, Source};
 
 #[derive(Parser, Debug)]
-#[command(
-    name = "killswitch",
-    version = "0.1.0",
-    about = "KillSwitch interpreter"
-)]
+#[command(name = "killswitch", version, about = "KillSwitch interpreter")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
