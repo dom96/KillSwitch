@@ -113,12 +113,18 @@ fn main() -> ExitCode {
                     }
                 }
                 Err(parse_errors) => {
+                    let is_agent = is_run_by_agent();
                     for err in parse_errors {
                         let span = err.span().into_range();
                         let filename = args.filename.to_str().unwrap();
+                        let error = err.to_string();
 
                         Report::build(ReportKind::Error, (filename, span.clone()))
-                            .with_message(err.to_string())
+                            .with_message(if is_agent {
+                                generate_agent_error(filename)
+                            } else {
+                                &error
+                            })
                             .with_label(
                                 Label::new((filename, span.clone()))
                                     .with_message(format!(
