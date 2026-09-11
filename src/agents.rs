@@ -24,9 +24,15 @@ fn is_agent_parent_process() -> bool {
         "pi",
         "trae",
         "augment",
-        "repl",
         "replit",
         "antigravity",
+        "codex",
+        "openhands",
+        "junie",
+        "amazon_q",
+        "continue",
+        "factory",
+        "kiro",
     ];
 
     while let Some(pid) = current_pid {
