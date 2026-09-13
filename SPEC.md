@@ -176,7 +176,7 @@ hack_the_planet murderously and brutally
 ```
 
 The value on the stack will determine whether to perform a hack of the local network (murderously) or
-some random remote networks (brutally). A value of 0 for the former and any other value for the latter.
+some random remote networks (brutally). A value of 1 for the former and 0 for the latter.
 
 You may also omit the latter adverb:
 
