@@ -125,3 +125,13 @@ fn test_cli_error_multiply() {
             "Invalid func call, need an anagram of multiply",
         ));
 }
+
+#[test]
+fn test_cli_promo() {
+    let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
+
+    cmd.args(vec!["run", "tests/promo.ks"])
+        .assert()
+        .success()
+        .stdout(predicate::eq("Hello World"));
+}

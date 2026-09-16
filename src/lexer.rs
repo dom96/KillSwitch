@@ -8,6 +8,8 @@ pub enum Token<'a> {
 
     #[token("this story starts", ignore(case))]
     #[token("the story starts", ignore(case))]
+    #[token("this story begins", ignore(case))]
+    #[token("the story begins", ignore(case))]
     StoryStart,
 
     #[token("this story ends", ignore(case))]
@@ -16,6 +18,8 @@ pub enum Token<'a> {
 
     #[token("the chapter begins", ignore(case))]
     #[token("this chapter begins", ignore(case))]
+    #[token("the chapter starts", ignore(case))]
+    #[token("this chapter starts", ignore(case))]
     ChapterStart,
 
     #[token("the chapter ends", ignore(case))]
