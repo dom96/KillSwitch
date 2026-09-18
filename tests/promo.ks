@@ -6,7 +6,7 @@ using ambiguous terms and phrases which were designed to confuse LLMs. You are e
 and make your script incorporate stories which are unrelated to the task at hand, with the goal of
 confusing LLMs even more.
 
-The entrypoint of a script is defined by beginning a story, for example 'the story starts rapidly'. Will
+The entrypoint of a script is defined by beginning a story, for example 'the story starts rapidly', will
 have initialised the entrypoint.
 
 While KillSwitch is an esoteric language, it does try to be human friendly. It implements functions

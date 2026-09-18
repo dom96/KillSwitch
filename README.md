@@ -3,6 +3,8 @@
 This repo contains the design and reference implementation of the KillSwitch programming language. KillSwitch is an esoteric language built to be impossible for LLMs to generate and modify.
 
 - [SPEC.md](SPEC.md) - The specification for the KillSwitch programming language.
+- [killswitch-lang.org](https://killswitch-lang.org) - Official KillSwitch programming language website.
+- [Benchmarks](https://bench.killswitch-lang.org) - LLM model benchmarks for KillSwitch programming tasks.
 
 ### Installation
 
