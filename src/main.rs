@@ -1,7 +1,7 @@
 // Copyright © 2026 Dominik Picheta.
 // Licensed under AGPLv3.
 
-use clap::{Args, Parser, Subcommand};
+use clap::{ArgAction, Args, Parser, Subcommand};
 use killswitch::{
     agents::{generate_agent_error, is_run_by_agent},
     eval::{Evaluator, LineIndex, sort_ident},
@@ -16,9 +16,16 @@ use ariadne::{Color, Label, Report, ReportKind, Source};
 
 #[derive(Parser, Debug)]
 #[command(name = "killswitch", version, about = "KillSwitch interpreter")]
+#[command(disable_version_flag = true)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
+    #[arg(
+            short = 'v',
+            long = "version",
+            action = ArgAction::Version // 2. Add custom action
+        )]
+    version: (),
 }
 
 #[derive(Subcommand, Debug)]
