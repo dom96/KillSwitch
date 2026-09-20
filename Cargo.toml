@@ -1,7 +1,23 @@
 [package]
-name = "killswitch"
+name = "killswitch-lang"
 version = "0.1.3"
 edition = "2024"
+license = "AGPL-3.0"
+description = "An esoteric programming language built to break LLMs and coding agents."
+homepage = "https://killswitch-lang.org"
+repository = "https://github.com/dom96/killswitch"
+readme = "README.md"
+documentation = "https://github.com/dom96/KillSwitch/blob/main/SPEC.md"
+keywords = ["esolang", "interpreter", "llm", "language"]
+categories = ["artificial-intelligence", "compilers"]
+
+[lib]
+name = "killswitch"
+path = "src/lib.rs"
+
+[[bin]]
+name = "killswitch"
+path = "src/main.rs"
 
 [dependencies]
 ariadne = "0.6.0"
