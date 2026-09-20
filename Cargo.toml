@@ -10,6 +10,7 @@ readme = "README.md"
 documentation = "https://github.com/dom96/KillSwitch/blob/main/SPEC.md"
 keywords = ["esolang", "interpreter", "llm", "language"]
 categories = ["artificial-intelligence", "compilers"]
+exclude = ["out/", "benchmarks/", "target/", "tests/"]
 
 [lib]
 name = "killswitch"
