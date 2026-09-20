@@ -1,6 +1,6 @@
 [package]
 name = "killswitch-lang"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2024"
 license = "AGPL-3.0"
 description = "An esoteric programming language built to break LLMs and coding agents."
